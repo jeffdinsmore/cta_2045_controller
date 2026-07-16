@@ -6,10 +6,12 @@ set -euo pipefail
 # Commands: s=Shed, e=End Shed, l=Load Up, g=Grid Emergency,
 #           c=Critical Peak Event
 EVENTS=(
-  "60,s"
-  "180,e"
-  "300,l"
-  "420,e"
+  "0,l"
+  "120,e"
+  "240,g"
+  "360,e"
+  "480,s"
+  "600,e"
 )
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
