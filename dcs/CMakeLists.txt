@@ -9,6 +9,7 @@ set(LIBCEA2045_VERSION ${LIBCEA2045_MAJOR_VERSION}.${LIBCEA2045_MINOR_VERSION}.$
 option(WERROR "Set all warnings to errors" OFF)
 option(STATICLIBS "Builds static versions of all installed libraries" OFF)
 option(TEST "Build the test suite" OFF)
+option(SAMPLE "Build the sample2 CTA-2045 controller" ON)
 
 if(STATICLIBS)
   set(LIB_TYPE STATIC)
@@ -50,7 +51,8 @@ if (TEST)
 endif()
 
 if (SAMPLE)
-  file(GLOB_RECURSE cea2045sample_SRC ./sample2/sample2/*.cpp)
+  # sample2 sources live directly in dcs/sample2.
+  file(GLOB_RECURSE cea2045sample_SRC ./sample2/*.cpp)
   add_executable(sample2 ${cea2045sample_SRC})
   target_link_libraries (sample2 LINK_PUBLIC cea2045 pthread wiringPi)
 endif()
