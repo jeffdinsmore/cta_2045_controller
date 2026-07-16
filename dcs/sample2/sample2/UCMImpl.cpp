@@ -161,6 +161,7 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
     out.open("log.csv",ios_base::out|ios_base::app);
 	LOG(INFO) << "operational state received " << (int)message->opCode2;
     out<<(int)message->opCode2<<"\n";
+	LOG(INFO) << "Press Enter for a list of commands" <<"\n";
 }
 
 //======================================================================================
