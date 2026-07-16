@@ -13,8 +13,4 @@ run: sample2
 	cd sample2 && ../$(PROGRAM)
 
 clean:
-	@if [ -f "$(BUILD_DIR)/CMakeCache.txt" ]; then \
-		cmake --build $(BUILD_DIR) --target clean; \
-	else \
-		echo "Nothing to clean; $(BUILD_DIR) is not configured."; \
-	fi
+	cmake -E remove_directory $(BUILD_DIR)
