@@ -1,1 +1,36 @@
 /dcs/build/debug/logs/myeasylog.log
+
+# Build output
+**/build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# Keep the source-controlled project Makefile
+!dcs/Makefile
+
+# Compiled files
+*.o
+*.obj
+*.so
+*.a
+*.lib
+*.dll
+*.exe
+*.out
+*.pyc
+
+# Python caches
+__pycache__/
+*.pyo
+
+# Runtime output
+**/logs/
+**/log.csv
+**/testlog/
+**/templog/
+
+# Generated schedule archives
+**/schedule_history/

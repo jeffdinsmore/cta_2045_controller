@@ -8,8 +8,7 @@ set(LIBCEA2045_VERSION ${LIBCEA2045_MAJOR_VERSION}.${LIBCEA2045_MINOR_VERSION}.$
 # options off-by-default that you can enable
 option(WERROR "Set all warnings to errors" OFF)
 option(STATICLIBS "Builds static versions of all installed libraries" OFF)
-option(TEST "Build the test suite" OFF)
-option(SAMPLE "Build the sample2 CTA-2045 controller" ON)
+option(CONTROLLER "Build the CTA-2045 controller application" ON)
 
 if(STATICLIBS)
   set(LIB_TYPE STATIC)
@@ -32,6 +31,7 @@ set(CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS})
 
 # include paths for all the local libraries
 include_directories(./cea2045)
+include_directories(./third_party)
 
 # ---- libcea2045 ----
 file(GLOB_RECURSE cea2045_SRC ./cea2045/cea2045/*.cpp)
@@ -41,19 +41,9 @@ install(TARGETS cea2045 DESTINATION lib)
 set(INSTALL_ARGS FILES_MATCHING PATTERN "*.h")
 install(DIRECTORY ./cea2045/cea2045 DESTINATION include ${INSTALL_ARGS})
 
-if (TEST)
-
-  # ---- tests ----
-  file(GLOB_RECURSE cea2045test_SRC ./test/test/*.cpp)
-  add_executable(testcea2045 ${cea2045test_SRC})
-  target_link_libraries (testcea2045 LINK_PUBLIC cea2045 pthread)
-
-endif()
-
-if (SAMPLE)
-  # sample2 sources live directly in dcs/sample2.
-  file(GLOB_RECURSE cea2045sample_SRC ./sample2/*.cpp)
-  add_executable(sample2 ${cea2045sample_SRC})
-  target_link_libraries (sample2 LINK_PUBLIC cea2045 pthread wiringPi)
+if (CONTROLLER)
+  file(GLOB_RECURSE controller_SRC ./controller/*.cpp)
+  add_executable(cta2045_controller ${controller_SRC})
+  target_link_libraries(cta2045_controller LINK_PUBLIC cea2045 pthread)
 endif()
 

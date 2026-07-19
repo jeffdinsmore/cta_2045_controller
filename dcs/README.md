@@ -11,11 +11,12 @@ This software implements the CTA2045 UCM protocol as defined by the Consumer
 Electronics Association in the R7.8 Modular Communication Interface for Energy
 Management subcommittee.
 
-This project includes three sub projects:
+This project includes these components:
 
 * **cea2045**: Core CTA2045 Library
-* **sample2**: Sample program demonstrating how to create a
-* **test**: Unit testing program
+* **controller**: CTA-2045 controller application and command scheduler
+* **third_party**: Bundled external dependencies used by the controller
+* **test**: Unit test sources for the core library
 
 The library is written in C++ and uses some features of C++11.
 
@@ -37,9 +38,8 @@ sudo apt-get install g++ cmake make
 Run the following commands depending on the type of build required. The commands
 assume starting from the root of the source tree.
 
-Building the library will generate a file called `libcea2045.so`. Building the test
-program and sample2 projects will generate files called `testcea2045` and `sample2`
-respectively.
+Building the library generates `libcea2045.so`. Building the controller generates
+an executable named `cta2045_controller`.
 
 * **Debug**
   ```
@@ -49,11 +49,11 @@ respectively.
   make
   ```
 
-* **Debug w/test and sample programs**
+* **Debug with controller**
   ```
   mkdir -p build/debug
   cd build/debug
-  cmake -DCMAKE_BUILD_TYPE=Debug -DSAMPLE=1 -DTEST=1 ../../
+  cmake -DCMAKE_BUILD_TYPE=Debug -DCONTROLLER=ON ../../
   make
   ```
 
@@ -61,7 +61,7 @@ respectively.
   ```
   mkdir -p build/release
   cd build/release
-  cmake -DCMAKE_BUILD_TYPE=Release -DSAMPLE=1 -DTEST=1 ../../
+  cmake -DCMAKE_BUILD_TYPE=Release -DCONTROLLER=ON ../../
   make
   ```
 
@@ -83,10 +83,10 @@ The following options are of special interest:
 -l lists all the tests
 -s runs and provides a verbose results output of each test
 
-## Notes on using the sample program
-The sample program can be used to communicate to an SGD device through a serial
+## Notes on using the controller
+The controller communicates with an SGD device through a serial
 port. The best approach is to run it with the EPRI CTA-2045 simulator and test 
-cables. This section describes testing the library using the sample2 program on 
+cables. This section describes running the controller on
 a Raspberry Pi single board computer combined with the CTA-2045 simulator 
 application.
 
@@ -94,10 +94,10 @@ application.
 2) Load the dependencies as described in the Dependencies section above.
 3) Build the application per the instructions in the Build instructions section. 
    Use the Release instructions.
-4) Follow the instructions in the included "sample2 Test Instructions.docx" file.
+4) Run `make schedule` to create a schedule, then `make run`.
 
-The sample program will attempt to open `/dev/ttyUSB0`. Adjust this file as
-necessary on line 123 of `main.cpp`.
+The controller attempts to open `/dev/ttyUSB0`. Adjust the serial-port setting
+in `controller/main.cpp` when necessary.
 
 On startup, the program will send a few commands to the SGD to determine
 what features are supported. Next, the program runs in a loop waiting for user
@@ -119,7 +119,7 @@ S:	intermediate Get SetPoint
 T:	intermediate Get Present Temperature
 
 ## Creating a UCM with the library
-The best way to learn how to use the library is to look at `sample2`, but here
+The best way to learn how to use the library is to look at `controller`, but here
 are a few tips.
 
 The library uses callbacks to notify user code when responses and unsolicited

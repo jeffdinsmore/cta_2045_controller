@@ -1,23 +1,23 @@
 BUILD_DIR := build/debug
-PROGRAM := $(BUILD_DIR)/sample2
+PROGRAM := $(BUILD_DIR)/cta2045_controller
 
-.PHONY: all sample2 schedule run test clean
+.PHONY: all controller schedule run test clean
 
-all: sample2
+all: controller
 
-sample2:
-	cmake -S . -B $(BUILD_DIR) -DSAMPLE=ON -DCMAKE_BUILD_TYPE=Debug
-	cmake --build $(BUILD_DIR) --target sample2
+controller:
+	cmake -S . -B $(BUILD_DIR) -DCONTROLLER=ON -DCMAKE_BUILD_TYPE=Debug
+	cmake --build $(BUILD_DIR) --target cta2045_controller
 
 schedule:
-	bash sample2/create_schedule.sh
+	bash controller/create_schedule.sh
 
-run: sample2
-	cd sample2 && ../$(PROGRAM)
+run: controller
+	cd controller && ../$(PROGRAM)
 
-test: sample2
-	bash sample2/create_schedule.sh
-	cd sample2 && ../$(PROGRAM)
+test: controller
+	bash controller/create_schedule.sh
+	cd controller && ../$(PROGRAM)
 
 clean:
 	cmake -E remove_directory $(BUILD_DIR)
