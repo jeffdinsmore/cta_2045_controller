@@ -149,7 +149,7 @@ int main()
 			case 'c':
     				cout << "Sending CRITICAL PEAK EVENT..." << endl;
     				device->basicCriticalPeakEvent(0).get();
-
+					cout << "Loading..."<< endl;
     				sleep(15);
 
     				cout << "Querying operational state after CRITICAL PEAK EVENT..." << endl;
@@ -159,7 +159,7 @@ int main()
 			case 'e':
     				cout << "Sending END SHED..." << endl;
     				device->basicEndShed(0).get();
-
+					cout << "Loading..."<< endl;
     				sleep(15);
 
     				cout << "Querying operational state after END SHED..." << endl;
@@ -169,7 +169,7 @@ int main()
 			case 'g':
     				cout << "Sending GRID EMERGENCY..." << endl;
     				device->basicGridEmergency(0).get();
-
+					cout << "Loading..."<< endl;
     				sleep(15);
 
     				cout << "Querying operational state after GRID EMERGENCY..." << endl;
@@ -179,7 +179,7 @@ int main()
 			case 'l':
     				cout << "Sending LOAD UP..." << endl;
     				device->basicLoadUp(0).get();
-
+					cout << "Loading..."<< endl;
     				sleep(15);
 
     				cout << "Querying operational state after LOAD UP..." << endl;
@@ -189,7 +189,7 @@ int main()
 			case 's':
     				cout << "Sending SHED..." << endl;
     				device->basicShed(0).get();
-
+					cout << "Loading..."<< endl;
     				sleep(15);
 
     				cout << "Querying operational state after SHED..." << endl;

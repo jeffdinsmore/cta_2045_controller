@@ -271,7 +271,7 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 {
     ofstream out;
     out.open("log.csv",ios_base::out|ios_base::app);
-	LOG(INFO) << "operational state received " << (int)message->opCode2;
+	LOG(INFO) << "operational state received: " << (int)message->opCode2;
     out<<(int)message->opCode2<<"\n";
 	cout << "\nPress Enter for a list of commands\n";
 }
