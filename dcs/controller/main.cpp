@@ -175,8 +175,14 @@ int main()
 				break;
 
 			case 's':
-				device->basicShed(0).get();
-				break;
+    			cout << "Sending SHED..." << endl;
+    			device->basicShed(0).get();
+
+    			sleep(1);
+
+    			cout << "Querying operational state after SHED..." << endl;
+    			device->basicQueryOperationalState().get();
+    			break;
 
 			default:
 				LOG(WARNING) << "invalid command";
