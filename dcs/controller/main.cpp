@@ -68,6 +68,7 @@ int main()
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
+		cout<<"v- Enable advanced load up capability"
         cout<<"q- Quit\n";
         cout<<"enter choice: ";
 		char c = getchar();
@@ -152,6 +153,11 @@ int main()
 				device->basicQueryOperationalState().get();
 				break;
 			
+			case 'v':
+    			cout << "Enabling Advanced Load Up capability bit 6..." << endl;
+    			device->intermediateSetCapabilityBit(6, true).get();
+    			break;
+
 			case '\n':
 				break;
 			
