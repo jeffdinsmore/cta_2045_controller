@@ -68,7 +68,9 @@ int main()
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
-		cout<<"v- Enable advanced load up capability";
+		cout<<"v- Enable advanced load up capability\n";
+		cout<<"x- Disable advanced load up capability\n";
+		cout<<"z- Quit and return operation to normal\n";
         cout<<"q- Quit\n";
         cout<<"enter choice: ";
 		char c = getchar();
@@ -84,6 +86,11 @@ int main()
 					
 					std::cout << "Advanced Load Up initiated with spec values..." << std::endl;
 					device->intermediateSetAdvancedLoadUp(duration, value, units).get();
+					cout << "Loading..."<< endl;
+					sleep(15);
+
+					cout << "Querying operational state after CRITICAL PEAK EVENT..." << endl;
+					device->basicQueryOperationalState().get();
 				}
 				break;
 
@@ -157,7 +164,22 @@ int main()
     			cout << "Enabling Advanced Load Up capability bit 6..." << endl;
     			device->intermediateSetCapabilityBit(6, true).get();
     			break;
+				
+			case 'x':
+    			cout << "Disabling Advanced Load Up capability bit 6..." << endl;
+    			device->intermediateSetCapabilityBit(6, false).get();
+    			break;
+			
+			case 'z':
+				cout << "Returning state to normal..." << endl;
+				device->basicEndShed(0).get();
+				cout << "Loading..."<< endl;
+				sleep(2);
 
+				cout << "Querying operational state after normal command..." << endl;
+				device->basicQueryOperationalState().get();
+				shutdown = true;
+				break;
 			case '\n':
 				break;
 			
