@@ -2,22 +2,44 @@
 
 set -euo pipefail
 
-# Test events are written as "seconds after start,CTA-2045 command".
+# Test events are written as
+# "time after start,seconds adjustment,CTA-2045 command".
+#
+# Durations support hours, minutes, and seconds, for example:
+#   1h 30m
+#   20m
+#   15s
+# Use a negative adjustment to schedule an event shortly before that time.
 # Commands: s=Shed, e=End Shed, l=Load Up, g=Grid Emergency,
 #           c=Critical Peak Event, o=Outside Communication Found
 EVENTS=(
-  "0,o"
-  "15,l"
-  "(60*20)-15,o"
-  "60*20,e"
-  "60*25,g"
-  "(60*60*1.5)-15,o"
-  "60*60*1.5,e"
-  "(60*60*2.5)-15,o"
-  "60*60*2.5,s"
-  "(60*60*4.5)-15,o"
-  "60*60*4.5,e"
+  "0m,0,o"
+  "0m,15,l"
+  "20m,-15,o"
+  "20m,0,e"
+  "25m,0,g"
+  "1h 30m,-15,o"
+  "1h 30m,0,e"
+  "2h 30m,-15,o"
+  "2h 30m,0,s"
+  "4h 30m,-15,o"
+  "4h 30m,0,e"
 )
+
+duration_to_seconds() {
+  local duration="${1//[[:space:]]/}"
+
+  if [[ ! "${duration}" =~ ^([0-9]+h)?([0-9]+m)?([0-9]+s)?$ ]] ||
+     [[ -z "${BASH_REMATCH[1]}${BASH_REMATCH[2]}${BASH_REMATCH[3]}" ]]; then
+    echo "Invalid duration '${1}'. Use a value such as '1h 30m', '20m', or '15s'." >&2
+    return 1
+  fi
+
+  local hours="${BASH_REMATCH[1]%h}"
+  local minutes="${BASH_REMATCH[2]%m}"
+  local seconds="${BASH_REMATCH[3]%s}"
+  echo $((10#${hours:-0} * 3600 + 10#${minutes:-0} * 60 + 10#${seconds:-0}))
+}
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SCHEDULE_FILE="${SCRIPT_DIR}/schedule.csv"
@@ -27,9 +49,9 @@ NOW="$(date +%s)"
 echo "# time,command" > "${SCHEDULE_FILE}"
 
 for event in "${EVENTS[@]}"; do
-  offset="${event%%,*}"
-  command="${event##*,}"
-  timestamp="$((NOW + offset))"
+  IFS=, read -r duration adjustment command <<< "${event}"
+  offset="$(duration_to_seconds "${duration}")"
+  timestamp="$((NOW + offset + adjustment))"
   echo "${timestamp},${command}" >> "${SCHEDULE_FILE}"
 done
 
