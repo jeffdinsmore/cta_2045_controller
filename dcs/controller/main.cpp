@@ -135,7 +135,12 @@ int main()
    				break;
 
 			case 'o':
+				cout << "Sending outside communication command..." << endl;
 				device->basicOutsideCommConnectionStatus(OutsideCommuncatonStatusCode::Found);
+				cout << "Loading..."<< endl;
+				sleep(10);
+				cout << "Querying operational state after LOAD UP..." << endl;
+				device->basicQueryOperationalState().get();
 				break;
 
 			case 'p':
