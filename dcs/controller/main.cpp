@@ -4,6 +4,7 @@
  */
 
 #include "UCMImpl.h"
+#include "CtaEventLog.h"
 
 #include <easylogging++.h>
 
@@ -29,8 +30,37 @@ INITIALIZE_EASYLOGGINGPP
 
 #include <cea2045/util/MSTimer.h>
 
-void perform_command(char cmd, unsigned char argument, std::shared_ptr<ICEA2045DeviceUCM> dev);
+void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
 void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
+
+const char* scheduledCommandName(char cmd)
+{
+	switch (tolower(cmd))
+	{
+	case 'a': return "advanced_load_up";
+	case 's': return "shed";
+	case 'e': return "run_normal";
+	case 'l': return "load_up";
+	case 'g': return "grid_emergency";
+	case 'c': return "critical_peak";
+	case 'o': return "outside_communication";
+	default: return "unknown";
+	}
+}
+
+const char* responseCodeName(ResponseCode code)
+{
+	switch (code)
+	{
+	case ResponseCode::OK: return "ok";
+	case ResponseCode::TIMEOUT: return "timeout";
+	case ResponseCode::BAD_CRC: return "bad_crc";
+	case ResponseCode::INVALID_RESPONSE: return "invalid_response";
+	case ResponseCode::NO_ACK_RECEIVED: return "no_ack_received";
+	case ResponseCode::NAK: return "nak";
+	}
+	return "unknown";
+}
 
 int main()
 {
@@ -39,13 +69,15 @@ int main()
 
 	CEA2045SerialPort sp("/dev/ttyUSB0");
 	UCMImpl ucm;
-	ResponseCodes responseCodes;
+	logCtaEvent("controller_started", "internal", "controller", "started");
 
 	if (!sp.open())
 	{
 		LOG(ERROR) << "failed to open serial port: " << strerror(errno);
+		logCtaEvent("serial_open", "internal", "serial_port", "error", "/dev/ttyUSB0", strerror(errno));
 		return 0;
 	}
+	logCtaEvent("serial_open", "internal", "serial_port", "ok", "/dev/ttyUSB0");
 
 	//shared_ptr<ICEA2045DeviceUCM> device = make_shared<DeviceFactory::createUCM(&sp, &ucm)>();
     //auto device = mak
@@ -55,6 +87,7 @@ int main()
     //device = DeviceFactory::createUCM(&sp,&ucm);
 
 	device->start();
+	logCtaEvent("communication_started", "internal", "cta2045", "started");
 
 
 	LOG(INFO) << "starting commodity service...";
@@ -180,7 +213,11 @@ int main()
 			
 			case 'z':
 				cout << "Returning state to normal..." << endl;
-				device->basicEndShed(0).get();
+				logCtaEvent("command_sent", "outbound", "run_normal", "pending", "0", "source=shutdown");
+				{
+					ResponseCodes result = device->basicEndShed(0).get();
+					logCtaEvent("command_completed", "outbound", "run_normal", responseCodeName(result.responesCode), "0", "source=shutdown");
+				}
 				cout << "Loading..."<< endl;
 				sleep(2);
 
@@ -214,6 +251,7 @@ int main()
 	}
 
 	device->shutDown();
+	logCtaEvent("controller_stopped", "internal", "controller", "stopped");
 
 	//delete (device);
 
@@ -223,41 +261,57 @@ int main()
 }
 
 
-void perform_command(char cmd, unsigned char argument, std::shared_ptr<ICEA2045DeviceUCM> dev){
+void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev){
+	const string commandName = scheduledCommandName(cmd);
+	string argumentText = to_string(argument);
+	if (tolower(cmd) == 'a')
+		argumentText = "duration_minutes=" + to_string(argument)
+			+ ";value=" + to_string(value)
+			+ ";units=" + to_string(units);
+	logCtaEvent("command_sent", "outbound", commandName, "pending", argumentText, "source=schedule", eventId);
+	ResponseCodes result;
+	bool commandCompleted = true;
     switch (tolower(cmd)){
 		case 'a':
 			cout << "advanced load up"<< endl;
-			dev->intermediateSetAdvancedLoadUp(60, 5, 0x02).get();
+			result = dev->intermediateSetAdvancedLoadUp(
+				static_cast<unsigned short>(argument),
+				static_cast<unsigned short>(value),
+				static_cast<unsigned char>(units)).get();
 			break;
 		case 's':
             cout<<"shedding"<<endl;
-	    dev->basicShed(argument).get();
+	    result = dev->basicShed(static_cast<unsigned char>(argument)).get();
             break;
         case 'e':
-	    dev->basicEndShed(argument).get();
+	    result = dev->basicEndShed(static_cast<unsigned char>(argument)).get();
             cout<<"endshedding"<<endl;
             break;
         case 'l':
             cout<<"loading up"<<endl;
-	    dev->basicLoadUp(argument).get();
+	    result = dev->basicLoadUp(static_cast<unsigned char>(argument)).get();
             break;
         case 'g':
             cout<<"grid emergency"<<endl;
-	    dev->basicGridEmergency(argument).get();
+	    result = dev->basicGridEmergency(static_cast<unsigned char>(argument)).get();
             break;
         case 'c':
             cout<<"critical peak event"<<endl;
-	    dev->basicCriticalPeakEvent(argument).get();
+	    result = dev->basicCriticalPeakEvent(static_cast<unsigned char>(argument)).get();
             break;
 		case 'o':
 			cout<<"outside communication found"<<endl;
-			dev->basicOutsideCommConnectionStatus(
+			result = dev->basicOutsideCommConnectionStatus(
 				OutsideCommuncatonStatusCode::Found).get();
             break;
 
         default:
+			commandCompleted = false;
+			logCtaEvent("command_rejected", "internal", commandName, "invalid_command", argumentText, "source=schedule", eventId);
             break;
     }
+	if (commandCompleted)
+		logCtaEvent("command_completed", "outbound", commandName, responseCodeName(result.responesCode), argumentText, "source=schedule", eventId);
     return;
 }
 
@@ -273,17 +327,20 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		cout<<"FAILED TO OPEN SCHEDULE.CSV"<<endl;
 	// prime the buffer -- skip the header
 	getline(file,header);
-	lines = "# time,command,argument\n";
+	lines = "# time,command,argument,event_id,value,units\n";
 	while (getline(file,line))
 	{
 	    if (line.empty() || line[0] == '#')
 	        continue;
 
-	    string timestampText, commandText, argumentText;
+	    string timestampText, commandText, argumentText, eventId, valueText, unitsText;
 	    stringstream row(line);
 	    getline(row, timestampText, ',');
 	    getline(row, commandText, ',');
 	    getline(row, argumentText, ',');
+	    getline(row, eventId, ',');
+	    getline(row, valueText, ',');
+	    getline(row, unitsText, ',');
 	    const auto trim = [](string& value)
 	    {
 	        while (!value.empty() && isspace(static_cast<unsigned char>(value.front())))
@@ -294,9 +351,14 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    trim(timestampText);
 	    trim(commandText);
 	    trim(argumentText);
+	    trim(eventId);
+	    trim(valueText);
+	    trim(unitsText);
 
 	    time_t t;
 	    unsigned long argumentValue = 0;
+	    unsigned long advancedValue = 0;
+	    unsigned long advancedUnits = 0;
 	    try
 	    {
 	        size_t timestampEnd = 0;
@@ -310,8 +372,20 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	            argumentValue = stoul(argumentText, &argumentEnd);
 	            if (argumentEnd != argumentText.size())
 	                throw invalid_argument("argument contains unexpected characters");
-	            if (argumentValue > 255)
-	                throw out_of_range("CTA argument exceeds one byte");
+	        }
+	        if (!valueText.empty())
+	        {
+	            size_t valueEnd = 0;
+	            advancedValue = stoul(valueText, &valueEnd);
+	            if (valueEnd != valueText.size())
+	                throw invalid_argument("advanced value contains unexpected characters");
+	        }
+	        if (!unitsText.empty())
+	        {
+	            size_t unitsEnd = 0;
+	            advancedUnits = stoul(unitsText, &unitsEnd);
+	            if (unitsEnd != unitsText.size())
+	                throw invalid_argument("advanced units contain unexpected characters");
 	        }
 	    }
 	    catch (const exception& error)
@@ -329,7 +403,24 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        continue;
 	    }
 	    char cmd = commandText[0];
-	    unsigned char argument = static_cast<unsigned char>(argumentValue);
+	    if (tolower(cmd) == 'a')
+	    {
+	        if (argumentText.empty() || valueText.empty() || unitsText.empty()
+	            || argumentValue == 0 || argumentValue > 0xFFFF
+	            || advancedValue == 0 || advancedValue > 0xFFFE
+	            || advancedUnits > 0x03)
+	        {
+	            LOG(ERROR) << "invalid advanced load-up arguments retained: " << line;
+	            lines += line + "\n";
+	            continue;
+	        }
+	    }
+	    else if (argumentValue > 0xFF || !valueText.empty() || !unitsText.empty())
+	    {
+	        LOG(ERROR) << "invalid Basic DR arguments retained: " << line;
+	        lines += line + "\n";
+	        continue;
+	    }
 
 		// grab time
 		time(&now);
@@ -337,7 +428,27 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		{
 		    // passed & should act on it
 		    cout<<t<<','<<cmd<<','<<argumentValue<<" (PASSED!)\n";
-		    perform_command(cmd,argument,dev);
+		    try
+		    {
+		    perform_command(
+		        cmd,
+		        static_cast<unsigned int>(argumentValue),
+		        static_cast<unsigned int>(advancedValue),
+		        static_cast<unsigned int>(advancedUnits),
+		        eventId,
+		        dev);
+		    }
+		    catch (const exception& error)
+		    {
+		        logCtaEvent(
+		            "command_exception",
+		            "outbound",
+		            scheduledCommandName(cmd),
+		            "error",
+		            argumentText,
+		            error.what(),
+		            eventId);
+		    }
 		}
 		else
 		{
@@ -346,6 +457,18 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		    lines += to_string(t) + ',' + cmd;
 		    if (!argumentText.empty())
 		        lines += ',' + argumentText;
+		    else if (!eventId.empty())
+		        lines += ',';
+		    if (!eventId.empty())
+		        lines += ',' + eventId;
+		    else if (!valueText.empty() || !unitsText.empty())
+		        lines += ',';
+		    if (!valueText.empty())
+		        lines += ',' + valueText;
+		    else if (!unitsText.empty())
+		        lines += ',';
+		    if (!unitsText.empty())
+		        lines += ',' + unitsText;
 		    lines += "\n";
 		}
 	}
@@ -359,8 +482,27 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	// ------------------------------ end of scheduler ----------------------
 	// send routine commands (commodity read & op status)
 	// dev->intermediateGetDeviceInformation().get();
-	dev->intermediateGetCommodity().get();
-        dev->basicQueryOperationalState().get();
+	logCtaEvent("query_sent", "outbound", "get_commodity", "pending", "", "source=periodic");
+	try
+	{
+	    ResponseCodes commodityResult = dev->intermediateGetCommodity().get();
+	    logCtaEvent("query_completed", "outbound", "get_commodity", responseCodeName(commodityResult.responesCode), "", "source=periodic");
+	}
+	catch (const exception& error)
+	{
+	    logCtaEvent("query_exception", "outbound", "get_commodity", "error", "", error.what());
+	}
+
+	logCtaEvent("query_sent", "outbound", "query_operational_state", "pending", "", "source=periodic");
+	try
+	{
+	    ResponseCodes stateResult = dev->basicQueryOperationalState().get();
+	    logCtaEvent("query_completed", "outbound", "query_operational_state", responseCodeName(stateResult.responesCode), "", "source=periodic");
+	}
+	catch (const exception& error)
+	{
+	    logCtaEvent("query_exception", "outbound", "query_operational_state", "error", "", error.what());
+	}
         sleep(60);
     }
 }

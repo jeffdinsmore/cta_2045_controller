@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Test events are written as
-# "time after start,seconds adjustment,CTA-2045 command,optional argument".
+# "time after start,seconds adjustment,CTA-2045 command,optional argument,optional event ID,optional value,optional units".
 #
 # Durations support hours, minutes, and seconds, for example:
 #   1h 30m
@@ -46,26 +46,26 @@ SCHEDULE_FILE="${SCRIPT_DIR}/schedule.csv"
 ARCHIVE_DIR="${SCRIPT_DIR}/schedule_history"
 NOW="$(date +%s)"
 
-echo "# time,command,argument" > "${SCHEDULE_FILE}"
+echo "# time,command,argument,event_id,value,units" > "${SCHEDULE_FILE}"
 
 for event in "${EVENTS[@]}"; do
-  IFS=, read -r duration adjustment command argument <<< "${event}"
+  IFS=, read -r duration adjustment command argument event_id value units <<< "${event}"
   offset="$(duration_to_seconds "${duration}")"
   timestamp="$((NOW + offset + adjustment))"
-  echo "${timestamp},${command},${argument}" >> "${SCHEDULE_FILE}"
+  echo "${timestamp},${command},${argument},${event_id},${value},${units}" >> "${SCHEDULE_FILE}"
 done
 
 mkdir -p "${ARCHIVE_DIR}"
 ARCHIVE_FILE="${ARCHIVE_DIR}/schedule_$(date +%Y-%m-%d_%H-%M-%S).csv"
 
-echo "# scheduled time,command,argument" > "${ARCHIVE_FILE}"
-while IFS=, read -r timestamp command argument; do
+echo "# scheduled time,command,argument,event_id,value,units" > "${ARCHIVE_FILE}"
+while IFS=, read -r timestamp command argument event_id value units; do
   if [[ -z "${timestamp}" || "${timestamp}" == \#* ]]; then
     continue
   fi
 
   readable_time="$(date -d "@${timestamp}" '+%Y-%m-%d %I:%M %p')"
-  echo "${readable_time},${command},${argument}" >> "${ARCHIVE_FILE}"
+  echo "${readable_time},${command},${argument},${event_id},${value},${units}" >> "${ARCHIVE_FILE}"
 done < "${SCHEDULE_FILE}"
 
 echo "Created ${SCHEDULE_FILE}:"

@@ -8,6 +8,7 @@
  */
 
 #include "UCMImpl.h"
+#include "CtaEventLog.h"
 #include <easylogging++.h>
 
 #include <cea2045/util/MSTimer.h>
@@ -283,6 +284,7 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 void UCMImpl::processAckReceived(cea2045::MessageCode messageCode)
 {
 	LOG(INFO) << "link ACK received: " << messageCodeName(messageCode);
+	logCtaEvent("link_ack", "inbound", messageCodeName(messageCode), "ack");
 
 	switch (messageCode)
 	{
@@ -306,7 +308,14 @@ void UCMImpl::processNakReceived(cea2045::LinkLayerNakCode nak, cea2045::Message
 {
 	LOG(WARNING) << "link NAK received for " << messageCodeName(messageCode)
 			 << ". Reason: " << linkNakReasonName(nak)
-			 << " (0x" << std::hex << static_cast<int>(nak) << std::dec << ")";
+				<< " (0x" << std::hex << static_cast<int>(nak) << std::dec << ")";
+	logCtaEvent(
+		"link_nak",
+		"inbound",
+		messageCodeName(messageCode),
+		"nak",
+		std::to_string(static_cast<int>(nak)),
+		linkNakReasonName(nak));
 
 	if (nak == cea2045::LinkLayerNakCode::UNSUPPORTED_MESSAGE_TYPE)
 	{
@@ -333,6 +342,12 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 {
 	ofstream out(CSV_LOG_PATH, ios_base::out | ios_base::app);
 	LOG(INFO) << "operational state received: " << (int)message->opCode2;
+	logCtaEvent(
+		"operational_state",
+		"inbound",
+		"query_operational_state",
+		"received",
+		std::to_string(static_cast<int>(message->opCode2)));
 	if (!out.is_open())
 	{
 		LOG(ERROR) << "failed to open CSV log: " << CSV_LOG_PATH;
@@ -349,6 +364,13 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 void UCMImpl::processAppAckReceived(cea2045::cea2045Basic* message)
 {
 	LOG(INFO) << "app ack received";
+	logCtaEvent(
+		"application_ack",
+		"inbound",
+		"basic_dr",
+		"ack",
+		std::to_string(static_cast<int>(message->opCode2)),
+		"opcode1=" + std::to_string(static_cast<int>(message->opCode1)));
 }
 
 //======================================================================================
@@ -357,7 +379,14 @@ void UCMImpl::processAppNakReceived(cea2045::cea2045Basic* message)
 {
 	LOG(WARNING) << "application NAK received. Reason: "
 			 << appNakReasonName(message->opCode2)
-			 << " (0x" << std::hex << static_cast<int>(message->opCode2) << std::dec << ")";
+				<< " (0x" << std::hex << static_cast<int>(message->opCode2) << std::dec << ")";
+	logCtaEvent(
+		"application_nak",
+		"inbound",
+		"basic_dr",
+		"nak",
+		std::to_string(static_cast<int>(message->opCode2)),
+		appNakReasonName(message->opCode2));
 }
 
 //======================================================================================
@@ -365,6 +394,12 @@ void UCMImpl::processAppNakReceived(cea2045::cea2045Basic* message)
 void UCMImpl::processAppCustomerOverride(cea2045::cea2045Basic* message)
 {
 	LOG(INFO) << "app cust override received: " << (int)message->opCode2;
+	logCtaEvent(
+		"customer_override",
+		"inbound",
+		"basic_dr",
+		"received",
+		std::to_string(static_cast<int>(message->opCode2)));
 }
 
 //======================================================================================
@@ -372,4 +407,11 @@ void UCMImpl::processAppCustomerOverride(cea2045::cea2045Basic* message)
 void UCMImpl::processIncompleteMessage(const unsigned char *buffer, unsigned int numBytes)
 {
 	LOG(WARNING) << "incomplete message received: " << numBytes;
+	logCtaEvent(
+		"incomplete_message",
+		"inbound",
+		"unknown",
+		"error",
+		std::to_string(numBytes),
+		"number_of_bytes");
 }
