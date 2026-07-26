@@ -15,6 +15,10 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
   a per-run results directory.
   Operational-state rows include both the numeric code and its human-readable
   state name.
+- Commodity rows are paired with the operational-state response from the same
+  periodic polling cycle. Standalone state queries, including the final
+  shutdown query, remain in `cta_events.csv` and do not create partial
+  commodity rows.
 - `schedule.csv` is the live command schedule. Rows use
   `time,command,argument,event_id,value,units`. Basic DR commands use the
   one-byte `argument`. Advanced Load Up uses `argument` as its duration in

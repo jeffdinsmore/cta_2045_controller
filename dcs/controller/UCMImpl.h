@@ -26,6 +26,8 @@ class UCMImpl : public cea2045::IUCM
 {
 private:
 	cea2045::MaxPayloadLengthCode m_sgdMaxPayload;
+	mutex m_commodityLogMutex;
+	bool m_commodityRowPending = false;
 
 
 public:

@@ -282,12 +282,20 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* message)
 {
 	LOG(INFO) << "commodity response received.  count: " << message->getCommodityDataCount();
+	lock_guard<mutex> logLock(m_commodityLogMutex);
 	const char* csvLogPath = commodityLogPath();
 	ofstream out(csvLogPath, ios_base::out | ios_base::app);
 	if (!out.is_open())
 	{
 		LOG(ERROR) << "failed to open CSV log: " << csvLogPath;
+		m_commodityRowPending = false;
+		return;
 	}
+
+	// A missing operational-state response must not cause the next commodity
+	// response to be joined to an incomplete row.
+	if (m_commodityRowPending)
+		out << ",\n";
 
 	int count = message->getCommodityDataCount();
 	out << currentDateTime();
@@ -309,6 +317,7 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 			<< ',' << data->getCumulativeAmount()
 			<< ',' << data->getInstantaneousRate();
 	}
+	m_commodityRowPending = true;
 }
 
 //======================================================================================
@@ -372,8 +381,6 @@ void UCMImpl::processNakReceived(cea2045::LinkLayerNakCode nak, cea2045::Message
 
 void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 {
-	const char* csvLogPath = commodityLogPath();
-	ofstream out(csvLogPath, ios_base::out | ios_base::app);
 	LOG(INFO) << "operational state received: " << (int)message->opCode2;
 	logCtaEvent(
 		"operational_state",
@@ -382,13 +389,21 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 		"received",
 		std::to_string(static_cast<int>(message->opCode2)),
 		operationalStateName(message->opCode2));
-	if (!out.is_open())
+
+	lock_guard<mutex> logLock(m_commodityLogMutex);
+	if (m_commodityRowPending)
 	{
-		LOG(ERROR) << "failed to open CSV log: " << csvLogPath;
-	}
-	else
-	{
-		out << ',' << static_cast<int>(message->opCode2) << '\n';
+		const char* csvLogPath = commodityLogPath();
+		ofstream out(csvLogPath, ios_base::out | ios_base::app);
+		if (!out.is_open())
+		{
+			LOG(ERROR) << "failed to open CSV log: " << csvLogPath;
+		}
+		else
+		{
+			out << ',' << static_cast<int>(message->opCode2) << '\n';
+			m_commodityRowPending = false;
+		}
 	}
 	cout << "\nPress Enter for a list of commands\n";
 }
