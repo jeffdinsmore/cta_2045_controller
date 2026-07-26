@@ -63,64 +63,100 @@ const char* messageCodeName(cea2045::MessageCode code)
 	switch (code)
 	{
 	case cea2045::MessageCode::NONE:
-		return "NONE";
+		return "none";
 	case cea2045::MessageCode::MAX_PAYLOAD_REQUEST:
-		return "MAX_PAYLOAD_REQUEST";
+		return "max_payload_request";
 	case cea2045::MessageCode::MAX_PAYLOAD_RESPONSE:
-		return "MAX_PAYLOAD_RESPONSE";
+		return "max_payload_response";
 	case cea2045::MessageCode::SUPPORT_DATALINK_MESSAGES:
-		return "SUPPORT_DATALINK_MESSAGES";
+		return "support_datalink_messages";
 	case cea2045::MessageCode::SUPPORT_INTERMEDIATE_MESSAGES:
-		return "SUPPORT_INTERMEDIATE_MESSAGES";
+		return "support_intermediate_messages";
 	case cea2045::MessageCode::ADVANCED_LOAD_UP_REQUEST:
-    	return "ADVANCED_LOAD_UP_REQUEST";
+		return "advanced_load_up";
 	case cea2045::MessageCode::SET_CAPABILITY_BIT_REQUEST:
-		return "SET_CAPABILITY_BIT_REQUEST";
+		return "set_capability_bit";
 	case cea2045::MessageCode::BASIC_CRITICAL_PEAK_EVENT_REQUEST:
-		return "BASIC_CRITICAL_PEAK_EVENT_REQUEST";
+		return "critical_peak";
 	case cea2045::MessageCode::BASIC_END_SHED_REQUEST:
-		return "BASIC_END_SHED_REQUEST";
+		return "run_normal";
 	case cea2045::MessageCode::BASIC_SHED_REQUEST:
-		return "BASIC_SHED_REQUEST";
+		return "shed";
 	case cea2045::MessageCode::BASIC_GRID_EMERGENCY_REQUEST:
-		return "BASIC_GRID_EMERGENCY_REQUEST";
+		return "grid_emergency";
 	case cea2045::MessageCode::BASIC_LOAD_UP_REQUEST:
-		return "BASIC_LOAD_UP_REQUEST";
+		return "load_up";
 	case cea2045::MessageCode::BASIC_OUTSIDE_COMM_CONNECTION_STATUS_MESSAGE:
-		return "BASIC_OUTSIDE_COMM_CONNECTION_STATUS_MESSAGE";
+		return "outside_communication";
 	case cea2045::MessageCode::BASIC_PRESENT_RELATIVE_PRICE_REQUEST:
-		return "BASIC_PRESENT_RELATIVE_PRICE_REQUEST";
+		return "present_relative_price";
 	case cea2045::MessageCode::BASIC_NEXT_RELATIVE_PRICE_REQUEST:
-		return "BASIC_NEXT_RELATIVE_PRICE_REQUEST";
+		return "next_relative_price";
 	case cea2045::MessageCode::BASIC_QUERY_OPERATIONAL_STATE_REQUEST:
-		return "BASIC_QUERY_OPERATIONAL_STATE_REQUEST";
+		return "query_operational_state";
 	case cea2045::MessageCode::BASIC_POWER_LEVEL:
-		return "BASIC_POWER_LEVEL";
+		return "power_level";
 	case cea2045::MessageCode::DEVICE_INFORMATION_REQUEST:
-		return "DEVICE_INFORMATION_REQUEST";
+		return "device_information";
 	case cea2045::MessageCode::GET_COMMODITY_REQUEST:
-		return "GET_COMMODITY_REQUEST";
+		return "get_commodity";
 	case cea2045::MessageCode::GET_TEMPERATURE_OFFSET:
-		return "GET_TEMPERATURE_OFFSET";
+		return "get_temperature_offset";
 	case cea2045::MessageCode::GET_SETPOINTS_REQUEST:
-		return "GET_SETPOINTS_REQUEST";
+		return "get_setpoints";
 	case cea2045::MessageCode::GET_PRESENT_TEMPERATURE_REQUEST:
-		return "GET_PRESENT_TEMPERATURE_REQUEST";
+		return "get_present_temperature";
 	case cea2045::MessageCode::SET_TEMPERATURE_OFFSET_REQUEST:
-		return "SET_TEMPERATURE_OFFSET_REQUEST";
+		return "set_temperature_offset";
 	case cea2045::MessageCode::SET_SETPOINTS_REQUEST:
-		return "SET_SETPOINTS_REQUEST";
+		return "set_setpoints";
 	case cea2045::MessageCode::SET_ENERGY_PRICE_REQUEST:
-		return "SET_ENERGY_PRICE_REQUEST";
+		return "set_energy_price";
 	case cea2045::MessageCode::START_CYCLING_REQUEST:
-		return "START_CYCLING_REQUEST";
+		return "start_cycling";
 	case cea2045::MessageCode::TERMINATE_CYCLING_REQUEST:
-		return "TERMINATE_CYCLING_REQUEST";
+		return "terminate_cycling";
 	case cea2045::MessageCode::CUSTOMER_OVERRIDE_RESPONSE:
-		return "CUSTOMER_OVERRIDE_RESPONSE";
+		return "customer_override";
 	}
 
-	return "UNKNOWN_MESSAGE";
+	return "unknown_message";
+}
+
+const char* basicOpcodeName(unsigned char opcode)
+{
+	switch (opcode)
+	{
+	case SHED: return "shed";
+	case END_SHED: return "run_normal";
+	case APP_ACK: return "application_ack";
+	case APP_NAK: return "application_nak";
+	case CPP: return "critical_peak";
+	case GRID_EMERGENCY: return "grid_emergency";
+	case COMM_STATUS: return "outside_communication";
+	case CUST_OVERRIDE: return "customer_override";
+	case OPER_STATE_REQ: return "query_operational_state";
+	case OPER_STATE_RESP: return "operational_state";
+	case LOADUP: return "load_up";
+	default: return "basic_dr";
+	}
+}
+
+std::string messageCodeOpcode1(cea2045::MessageCode code)
+{
+	switch (code)
+	{
+	case cea2045::MessageCode::ADVANCED_LOAD_UP_REQUEST: return "12";
+	case cea2045::MessageCode::BASIC_CRITICAL_PEAK_EVENT_REQUEST: return "10";
+	case cea2045::MessageCode::BASIC_END_SHED_REQUEST: return "2";
+	case cea2045::MessageCode::BASIC_SHED_REQUEST: return "1";
+	case cea2045::MessageCode::BASIC_GRID_EMERGENCY_REQUEST: return "11";
+	case cea2045::MessageCode::BASIC_LOAD_UP_REQUEST: return "23";
+	case cea2045::MessageCode::BASIC_OUTSIDE_COMM_CONNECTION_STATUS_MESSAGE: return "14";
+	case cea2045::MessageCode::BASIC_QUERY_OPERATIONAL_STATE_REQUEST: return "18";
+	case cea2045::MessageCode::GET_COMMODITY_REQUEST: return "6";
+	default: return "";
+	}
 }
 
 const char* linkNakReasonName(cea2045::LinkLayerNakCode reason)
@@ -346,7 +382,16 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 void UCMImpl::processAckReceived(cea2045::MessageCode messageCode)
 {
 	LOG(INFO) << "link ACK received: " << messageCodeName(messageCode);
-	logCtaEvent("link_ack", "inbound", messageCodeName(messageCode), "ack");
+	logCtaEvent(
+		"link_ack",
+		"inbound",
+		messageCodeName(messageCode),
+		"ack",
+		"",
+		"",
+		"",
+		"link_layer",
+		messageCodeOpcode1(messageCode));
 
 	switch (messageCode)
 	{
@@ -376,6 +421,12 @@ void UCMImpl::processNakReceived(cea2045::LinkLayerNakCode nak, cea2045::Message
 		"inbound",
 		messageCodeName(messageCode),
 		"nak",
+		"",
+		"",
+		"",
+		"link_layer",
+		messageCodeOpcode1(messageCode),
+		"",
 		std::to_string(static_cast<int>(nak)),
 		linkNakReasonName(nak));
 
@@ -408,6 +459,14 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 		"inbound",
 		"query_operational_state",
 		"received",
+		"",
+		"",
+		"",
+		"device_response",
+		std::to_string(static_cast<int>(message->opCode1)),
+		std::to_string(static_cast<int>(message->opCode2)),
+		"",
+		"",
 		std::to_string(static_cast<int>(message->opCode2)),
 		operationalStateName(message->opCode2));
 
@@ -437,10 +496,14 @@ void UCMImpl::processAppAckReceived(cea2045::cea2045Basic* message)
 	logCtaEvent(
 		"application_ack",
 		"inbound",
-		"basic_dr",
+		basicOpcodeName(message->opCode2),
 		"ack",
-		std::to_string(static_cast<int>(message->opCode2)),
-		"opcode1=" + std::to_string(static_cast<int>(message->opCode1)));
+		"",
+		"",
+		"",
+		"application_layer",
+		std::to_string(static_cast<int>(message->opCode1)),
+		std::to_string(static_cast<int>(message->opCode2)));
 }
 
 //======================================================================================
@@ -455,6 +518,12 @@ void UCMImpl::processAppNakReceived(cea2045::cea2045Basic* message)
 		"inbound",
 		"basic_dr",
 		"nak",
+		"",
+		"",
+		"",
+		"application_layer",
+		std::to_string(static_cast<int>(message->opCode1)),
+		std::to_string(static_cast<int>(message->opCode2)),
 		std::to_string(static_cast<int>(message->opCode2)),
 		appNakReasonName(message->opCode2));
 }
@@ -467,8 +536,13 @@ void UCMImpl::processAppCustomerOverride(cea2045::cea2045Basic* message)
 	logCtaEvent(
 		"customer_override",
 		"inbound",
-		"basic_dr",
+		"customer_override",
 		"received",
+		"",
+		"",
+		"",
+		"application_layer",
+		std::to_string(static_cast<int>(message->opCode1)),
 		std::to_string(static_cast<int>(message->opCode2)));
 }
 
@@ -483,5 +557,7 @@ void UCMImpl::processIncompleteMessage(const unsigned char *buffer, unsigned int
 		"unknown",
 		"error",
 		std::to_string(numBytes),
-		"number_of_bytes");
+		"",
+		"",
+		"link_layer");
 }

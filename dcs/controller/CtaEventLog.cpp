@@ -39,23 +39,29 @@ std::string csvEscape(const std::string& value)
     return escaped;
 }
 
-std::string currentUtcTimestamp()
+std::string currentPacificTimestamp()
 {
     const std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
     const std::chrono::milliseconds sinceEpoch =
         std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
     const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
-    std::tm utc;
+    std::tm local;
 #ifdef _WIN32
-    gmtime_s(&utc, &seconds);
+    localtime_s(&local, &seconds);
 #else
-    gmtime_r(&seconds, &utc);
+    localtime_r(&seconds, &local);
 #endif
 
+    char utcOffset[8] = "";
+    std::strftime(utcOffset, sizeof(utcOffset), "%z", &local);
+    std::string formattedOffset(utcOffset);
+    if (formattedOffset.size() == 5)
+        formattedOffset.insert(3, ":");
+
     std::ostringstream timestamp;
-    timestamp << std::put_time(&utc, "%Y-%m-%dT%H:%M:%S")
+    timestamp << std::put_time(&local, "%Y-%m-%dT%H:%M:%S")
               << '.' << std::setfill('0') << std::setw(3)
-              << (sinceEpoch.count() % 1000) << 'Z';
+              << (sinceEpoch.count() % 1000) << formattedOffset;
     return timestamp.str();
 }
 }
@@ -67,7 +73,14 @@ void logCtaEvent(
     const std::string& result,
     const std::string& argument,
     const std::string& details,
-    const std::string& eventId)
+    const std::string& eventId,
+    const std::string& source,
+    const std::string& opcode1,
+    const std::string& opcode2,
+    const std::string& nakCode,
+    const std::string& nakReason,
+    const std::string& operationalState,
+    const std::string& operationalStateName)
 {
     std::lock_guard<std::mutex> lock(eventLogMutex);
     mkdir(LOG_DIRECTORY, 0755);
@@ -81,15 +94,24 @@ void logCtaEvent(
     if (!output.is_open())
         return;
     if (needsHeader)
-        output << "timestamp_utc,event_id,event,direction,command,result,argument,details\n";
+        output << "timestamp_pacific,event_id,event,direction,command,result,"
+                  "argument,source,opcode1,opcode2,nak_code,nak_reason,"
+                  "operational_state,operational_state_name,details\n";
 
-    output << csvEscape(currentUtcTimestamp()) << ','
+    output << csvEscape(currentPacificTimestamp()) << ','
            << csvEscape(eventId) << ','
            << csvEscape(event) << ','
            << csvEscape(direction) << ','
            << csvEscape(command) << ','
            << csvEscape(result) << ','
            << csvEscape(argument) << ','
+           << csvEscape(source) << ','
+           << csvEscape(opcode1) << ','
+           << csvEscape(opcode2) << ','
+           << csvEscape(nakCode) << ','
+           << csvEscape(nakReason) << ','
+           << csvEscape(operationalState) << ','
+           << csvEscape(operationalStateName) << ','
            << csvEscape(details) << '\n';
     output.flush();
 }

@@ -49,6 +49,21 @@ const char* scheduledCommandName(char cmd)
 	}
 }
 
+string scheduledCommandOpcode1(char cmd)
+{
+	switch (tolower(cmd))
+	{
+	case 'a': return "12";
+	case 's': return "1";
+	case 'e': return "2";
+	case 'c': return "10";
+	case 'g': return "11";
+	case 'o': return "14";
+	case 'l': return "23";
+	default: return "";
+	}
+}
+
 const char* responseCodeName(ResponseCode code)
 {
 	switch (code)
@@ -70,15 +85,21 @@ int main()
 
 	CEA2045SerialPort sp("/dev/ttyUSB0");
 	UCMImpl ucm;
-	logCtaEvent("controller_started", "internal", "controller", "started");
+	logCtaEvent(
+		"controller_started", "internal", "controller", "started",
+		"", "", "", "controller");
 
 	if (!sp.open())
 	{
 		LOG(ERROR) << "failed to open serial port: " << strerror(errno);
-		logCtaEvent("serial_open", "internal", "serial_port", "error", "/dev/ttyUSB0", strerror(errno));
+		logCtaEvent(
+			"serial_open", "internal", "serial_port", "error",
+			"/dev/ttyUSB0", strerror(errno), "", "controller");
 		return 0;
 	}
-	logCtaEvent("serial_open", "internal", "serial_port", "ok", "/dev/ttyUSB0");
+	logCtaEvent(
+		"serial_open", "internal", "serial_port", "ok",
+		"/dev/ttyUSB0", "", "", "controller");
 
 	//shared_ptr<ICEA2045DeviceUCM> device = make_shared<DeviceFactory::createUCM(&sp, &ucm)>();
     //auto device = mak
@@ -88,7 +109,9 @@ int main()
     //device = DeviceFactory::createUCM(&sp,&ucm);
 
 	device->start();
-	logCtaEvent("communication_started", "internal", "cta2045", "started");
+	logCtaEvent(
+		"communication_started", "internal", "cta2045", "started",
+		"", "", "", "controller");
 
 
 	LOG(INFO) << "starting commodity service...";
@@ -214,10 +237,15 @@ int main()
 			
 			case 'z':
 				cout << "Returning state to normal..." << endl;
-				logCtaEvent("command_sent", "outbound", "run_normal", "pending", "0", "source=shutdown");
+				logCtaEvent(
+					"command_sent", "outbound", "run_normal", "pending", "0",
+					"", "", "shutdown", "2", "0");
 				{
 					ResponseCodes result = device->basicEndShed(0).get();
-					logCtaEvent("command_completed", "outbound", "run_normal", responseCodeName(result.responesCode), "0", "source=shutdown");
+					logCtaEvent(
+						"command_completed", "outbound", "run_normal",
+						responseCodeName(result.responesCode), "0",
+						"", "", "shutdown", "2", "0");
 				}
 				cout << "Loading..."<< endl;
 				sleep(2);
@@ -252,7 +280,9 @@ int main()
 	}
 
 	device->shutDown();
-	logCtaEvent("controller_stopped", "internal", "controller", "stopped");
+	logCtaEvent(
+		"controller_stopped", "internal", "controller", "stopped",
+		"", "", "", "controller");
 
 	//delete (device);
 
@@ -269,7 +299,11 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 		argumentText = "duration_minutes=" + to_string(argument)
 			+ ";value=" + to_string(value)
 			+ ";units=" + to_string(units);
-	logCtaEvent("command_sent", "outbound", commandName, "pending", argumentText, "source=schedule", eventId);
+	const string opcode1 = scheduledCommandOpcode1(cmd);
+	const string opcode2 = tolower(cmd) == 'a' ? "" : to_string(argument);
+	logCtaEvent(
+		"command_sent", "outbound", commandName, "pending", argumentText,
+		"", eventId, "schedule", opcode1, opcode2);
 	ResponseCodes result;
 	bool commandCompleted = true;
     switch (tolower(cmd)){
@@ -308,11 +342,16 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 
         default:
 			commandCompleted = false;
-			logCtaEvent("command_rejected", "internal", commandName, "invalid_command", argumentText, "source=schedule", eventId);
+			logCtaEvent(
+				"command_rejected", "internal", commandName, "invalid_command",
+				argumentText, "", eventId, "schedule", opcode1, opcode2);
             break;
     }
 	if (commandCompleted)
-		logCtaEvent("command_completed", "outbound", commandName, responseCodeName(result.responesCode), argumentText, "source=schedule", eventId);
+		logCtaEvent(
+			"command_completed", "outbound", commandName,
+			responseCodeName(result.responesCode), argumentText,
+			"", eventId, "schedule", opcode1, opcode2);
     return;
 }
 
@@ -454,7 +493,10 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		            "error",
 		            argumentText,
 		            error.what(),
-		            eventId);
+		            eventId,
+		            "schedule",
+		            scheduledCommandOpcode1(cmd),
+		            tolower(cmd) == 'a' ? "" : argumentText);
 		    }
 		}
 		else
@@ -501,26 +543,40 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	if (chrono::steady_clock::now() >= nextCommodityRead)
 	{
 	    // dev->intermediateGetDeviceInformation().get();
-	    logCtaEvent("query_sent", "outbound", "get_commodity", "pending", "", "source=periodic");
+	    logCtaEvent(
+	        "query_sent", "outbound", "get_commodity", "pending",
+	        "", "", "", "periodic", "6", "0");
 	    try
 	    {
 	        ResponseCodes commodityResult = dev->intermediateGetCommodity().get();
-	        logCtaEvent("query_completed", "outbound", "get_commodity", responseCodeName(commodityResult.responesCode), "", "source=periodic");
+	        logCtaEvent(
+	            "query_completed", "outbound", "get_commodity",
+	            responseCodeName(commodityResult.responesCode),
+	            "", "", "", "periodic", "6", "0");
 	    }
 	    catch (const exception& error)
 	    {
-	        logCtaEvent("query_exception", "outbound", "get_commodity", "error", "", error.what());
+	        logCtaEvent(
+	            "query_exception", "outbound", "get_commodity", "error",
+	            "", error.what(), "", "periodic", "6", "0");
 	    }
 
-	    logCtaEvent("query_sent", "outbound", "query_operational_state", "pending", "", "source=periodic");
+	    logCtaEvent(
+	        "query_sent", "outbound", "query_operational_state", "pending",
+	        "", "", "", "periodic", "18", "0");
 	    try
 	    {
 	        ResponseCodes stateResult = dev->basicQueryOperationalState().get();
-	        logCtaEvent("query_completed", "outbound", "query_operational_state", responseCodeName(stateResult.responesCode), "", "source=periodic");
+	        logCtaEvent(
+	            "query_completed", "outbound", "query_operational_state",
+	            responseCodeName(stateResult.responesCode),
+	            "", "", "", "periodic", "18", "0");
 	    }
 	    catch (const exception& error)
 	    {
-	        logCtaEvent("query_exception", "outbound", "query_operational_state", "error", "", error.what());
+	        logCtaEvent(
+	            "query_exception", "outbound", "query_operational_state", "error",
+	            "", error.what(), "", "periodic", "18", "0");
 	    }
 
 	    nextCommodityRead += commodityInterval;

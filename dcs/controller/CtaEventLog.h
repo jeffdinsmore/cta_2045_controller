@@ -10,6 +10,13 @@ void logCtaEvent(
     const std::string& result,
     const std::string& argument = "",
     const std::string& details = "",
-    const std::string& eventId = "");
+    const std::string& eventId = "",
+    const std::string& source = "",
+    const std::string& opcode1 = "",
+    const std::string& opcode2 = "",
+    const std::string& nakCode = "",
+    const std::string& nakReason = "",
+    const std::string& operationalState = "",
+    const std::string& operationalStateName = "");
 
 #endif

@@ -8,9 +8,11 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
   scheduled commands. The schedule is checked once per second, independently
   of the 60-second commodity and operational-state polling interval.
 - `UCMImpl.cpp` and `UCMImpl.h` handle responses received from the water heater.
-- `logs/cta_events.csv` records UTC timestamps for command dispatch and
+- `logs/cta_events.csv` records Pacific timestamps for command dispatch and
   completion, link/application ACK or NAK callbacks, operational states, and
-  controller lifecycle events. It is separate from the commodity `logs/log.csv`.
+  controller lifecycle events. Its normalized columns separate source,
+  Opcode1/Opcode2, NAK code/reason, and operational-state code/name from
+  free-form details. It is separate from the commodity `logs/log.csv`.
   Set `CTA_EVENT_LOG_PATH` and `CTA_COMMODITY_LOG_PATH` to place both files in
   a per-run results directory.
   Operational-state rows include both the numeric code and its human-readable
