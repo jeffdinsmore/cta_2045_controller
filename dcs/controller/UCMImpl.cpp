@@ -27,6 +27,12 @@ using namespace std;
 namespace
 {
 const char* LOG_DIRECTORY = "logs";
+const char* COMMODITY_CSV_HEADER =
+	"timestamp_pacific,"
+	"commodity_code_1,cumulative_Wh_1,insta_rate_W_1,,"
+	"commodity_code_2,cumulative_Wh_2,insta_rate_W_2,,"
+	"commodity_code_3,cumulative_Wh_3,insta_rate_W_3,"
+	"operational_state";
 
 const char* commodityLogPath()
 {
@@ -284,6 +290,9 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 	LOG(INFO) << "commodity response received.  count: " << message->getCommodityDataCount();
 	lock_guard<mutex> logLock(m_commodityLogMutex);
 	const char* csvLogPath = commodityLogPath();
+	struct stat logFileInfo;
+	const bool writeHeader =
+		stat(csvLogPath, &logFileInfo) != 0 || logFileInfo.st_size == 0;
 	ofstream out(csvLogPath, ios_base::out | ios_base::app);
 	if (!out.is_open())
 	{
@@ -291,6 +300,8 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 		m_commodityRowPending = false;
 		return;
 	}
+	if (writeHeader)
+		out << COMMODITY_CSV_HEADER << '\n';
 
 	// A missing operational-state response must not cause the next commodity
 	// response to be joined to an incomplete row.
@@ -298,9 +309,20 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 		out << ",\n";
 
 	int count = message->getCommodityDataCount();
+	if (count > 3)
+		LOG(WARNING) << "commodity CSV supports three commodity groups; received "
+					 << count << " and will record the first three";
 	out << currentDateTime();
-	for (int x = 0; x < count; x++)
+	for (int x = 0; x < 3; x++)
 	{
+		if (x > 0)
+			out << ','; // blank separator column between commodity groups
+		if (x >= count)
+		{
+			out << ",,,";
+			continue;
+		}
+
 		cea2045::cea2045CommodityData *data = message->getCommodityData(x);
 		const unsigned char rawCommodityCode = data->commodityCode;
 		const unsigned char commodityCode = rawCommodityCode & 0x7F;
@@ -313,7 +335,6 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 		LOG(INFO) << "  cumulative: " << data->getCumulativeAmount();
 		LOG(INFO) << "   inst rate: " << data->getInstantaneousRate();
 		out << ',' << static_cast<int>(commodityCode)
-			<< ',' << (isMeasured ? "Measured" : "Estimated")
 			<< ',' << data->getCumulativeAmount()
 			<< ',' << data->getInstantaneousRate();
 	}

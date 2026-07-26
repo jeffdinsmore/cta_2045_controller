@@ -18,7 +18,10 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
 - Commodity rows are paired with the operational-state response from the same
   periodic polling cycle. Standalone state queries, including the final
   shutdown query, remain in `cta_events.csv` and do not create partial
-  commodity rows.
+  commodity rows. New commodity logs include a header and three uniquely named
+  commodity groups containing code, cumulative Wh, and instantaneous W. Blank
+  columns visually separate the groups; the redundant Estimated/Measured text
+  is omitted.
 - `schedule.csv` is the live command schedule. Rows use
   `time,command,argument,event_id,value,units`. Basic DR commands use the
   one-byte `argument`. Advanced Load Up uses `argument` as its duration in
