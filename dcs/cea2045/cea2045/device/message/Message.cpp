@@ -119,12 +119,17 @@ Message::~Message()
 
 //======================================================================================
 
-void Message::setResponseCode(ResponseCode responseCode)
+void Message::setResponseCode(
+		ResponseCode responseCode,
+		bool hasIntermediateResponseCode,
+		unsigned char intermediateResponseCode)
 {
 	ResponseCodes responesCodes;
 
 	responesCodes.responesCode = responseCode;
 	responesCodes.nak = LinkLayerNakCode::NONE;
+	responesCodes.hasIntermediateResponseCode = hasIntermediateResponseCode;
+	responesCodes.intermediateResponseCode = intermediateResponseCode;
 
 	m_promise.set_value(responesCodes);
 }
@@ -137,6 +142,8 @@ void Message::setResponseCodeNak(LinkLayerNakCode nak)
 
 	responesCodes.responesCode = ResponseCode::NAK;
 	responesCodes.nak = nak;
+	responesCodes.hasIntermediateResponseCode = false;
+	responesCodes.intermediateResponseCode = 0;
 
 	m_promise.set_value(responesCodes);
 }

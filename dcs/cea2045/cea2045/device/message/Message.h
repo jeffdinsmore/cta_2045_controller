@@ -126,6 +126,8 @@ struct ResponseCodes
 {
 	ResponseCode responesCode;
 	LinkLayerNakCode nak;
+	bool hasIntermediateResponseCode;
+	unsigned char intermediateResponseCode;
 };
 
 class Message
@@ -141,7 +143,10 @@ public:
 	virtual int getNumBytes() = 0;
 	virtual unsigned char *getBuffer() = 0;
 
-	void setResponseCode(ResponseCode responseCode);
+	void setResponseCode(
+			ResponseCode responseCode,
+			bool hasIntermediateResponseCode = false,
+			unsigned char intermediateResponseCode = 0);
 	void setResponseCodeNak(LinkLayerNakCode nak);
 
 	std::future<ResponseCodes> getFuture();

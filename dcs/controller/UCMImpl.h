@@ -48,7 +48,7 @@ public:
 	virtual void processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse2 *message) {};
 	virtual void processStartCyclingResponse(cea2045::cea2045IntermediateResponse *message) {};
 	virtual void processTerminateCyclingResponse(cea2045::cea2045IntermediateResponse *message) {};
-	virtual void processSetAdvancedLoadUpResponse(cea2045::cea2045IntermediateResponse *message) {};
+	virtual void processSetAdvancedLoadUpResponse(cea2045::cea2045IntermediateResponse *message);
 	virtual void processGetPresentTemperatureResponse(cea2045::cea2045GetPresentTemperatureResponse *message) {};
 	virtual void processGetUTCTimeResponse(cea2045::cea2045GetUTCTimeResponse *message) {};;
 	virtual void processAckReceived(cea2045::MessageCode messageCode);

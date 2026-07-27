@@ -9,6 +9,7 @@
 
 #include "UCMImpl.h"
 #include "CtaEventLog.h"
+#include "IntermediateResponseCode.h"
 #include <easylogging++.h>
 
 #include <cea2045/util/MSTimer.h>
@@ -254,23 +255,6 @@ bool commodityIsRecordedInCsv(unsigned char code)
 	return code != 8 && code != 9;
 }
 
-const char* intermediateResponseCodeName(unsigned char code)
-{
-	switch (code)
-	{
-	case 0x00: return "success";
-	case 0x01: return "command_not_implemented";
-	case 0x02: return "bad_value";
-	case 0x03: return "command_length_error";
-	case 0x04: return "response_length_error";
-	case 0x05: return "busy";
-	case 0x06: return "other_error";
-	case 0x07: return "customer_override";
-	case 0x08: return "command_not_enabled";
-	default: return "reserved";
-	}
-}
-
 const char* operationalStateName(unsigned char code)
 {
 	switch (code)
@@ -450,6 +434,34 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 			out << data->getInstantaneousRate();
 	}
 	m_commodityRowPending = true;
+}
+
+//======================================================================================
+
+void UCMImpl::processSetAdvancedLoadUpResponse(
+		cea2045::cea2045IntermediateResponse *message)
+{
+	const unsigned char responseCode = message->responseCode;
+	const char* responseName = intermediateResponseCodeName(responseCode);
+	LOG(INFO) << "advanced load up response received. response code: "
+			  << static_cast<int>(responseCode) << " - " << responseName;
+	logCtaEvent(
+		"intermediate_response",
+		"inbound",
+		"advanced_load_up",
+		responseCode == 0x00 ? "success" : "error",
+		"",
+		"",
+		"",
+		"device_response",
+		std::to_string(static_cast<int>(message->opCode1)),
+		std::to_string(static_cast<int>(message->opCode2)),
+		"",
+		"",
+		"",
+		"",
+		std::to_string(static_cast<int>(responseCode)),
+		responseName);
 }
 
 //======================================================================================

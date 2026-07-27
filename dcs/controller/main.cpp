@@ -5,6 +5,7 @@
 
 #include "UCMImpl.h"
 #include "CtaEventLog.h"
+#include "IntermediateResponseCode.h"
 
 #include <easylogging++.h>
 
@@ -348,10 +349,26 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
             break;
     }
 	if (commandCompleted)
+	{
+		string completionResult = responseCodeName(result.responesCode);
+		string intermediateCode;
+		string intermediateName;
+		if (result.responesCode == ResponseCode::OK
+				&& result.hasIntermediateResponseCode)
+		{
+			intermediateCode =
+				to_string(static_cast<int>(result.intermediateResponseCode));
+			intermediateName =
+				intermediateResponseCodeName(result.intermediateResponseCode);
+			if (result.intermediateResponseCode != 0x00)
+				completionResult = intermediateName;
+		}
 		logCtaEvent(
 			"command_completed", "outbound", commandName,
-			responseCodeName(result.responesCode), argumentText,
-			"", eventId, "schedule", opcode1, opcode2);
+			completionResult, argumentText,
+			"", eventId, "schedule", opcode1, opcode2,
+			"", "", "", "", intermediateCode, intermediateName);
+	}
     return;
 }
 
@@ -549,10 +566,24 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    try
 	    {
 	        ResponseCodes commodityResult = dev->intermediateGetCommodity().get();
+			string completionResult = responseCodeName(commodityResult.responesCode);
+			string intermediateCode;
+			string intermediateName;
+			if (commodityResult.responesCode == ResponseCode::OK
+					&& commodityResult.hasIntermediateResponseCode)
+			{
+				intermediateCode = to_string(
+					static_cast<int>(commodityResult.intermediateResponseCode));
+				intermediateName = intermediateResponseCodeName(
+					commodityResult.intermediateResponseCode);
+				if (commodityResult.intermediateResponseCode != 0x00)
+					completionResult = intermediateName;
+			}
 	        logCtaEvent(
 	            "query_completed", "outbound", "get_commodity",
-	            responseCodeName(commodityResult.responesCode),
-	            "", "", "", "periodic", "6", "0");
+	            completionResult,
+	            "", "", "", "periodic", "6", "0",
+				"", "", "", "", intermediateCode, intermediateName);
 	    }
 	    catch (const exception& error)
 	    {
