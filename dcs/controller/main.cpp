@@ -114,6 +114,29 @@ int main()
 		"communication_started", "internal", "cta2045", "started",
 		"", "", "", "controller");
 
+	logCtaEvent(
+		"query_sent", "outbound", "device_information", "pending",
+		"", "", "", "startup", "1", "1");
+	ResponseCodes deviceInfoResult =
+		device->intermediateGetDeviceInformation().get();
+	string deviceInfoCompletion =
+		responseCodeName(deviceInfoResult.responesCode);
+	string deviceInfoResponseCode;
+	string deviceInfoResponseName;
+	if (deviceInfoResult.responesCode == ResponseCode::OK
+			&& deviceInfoResult.hasIntermediateResponseCode)
+	{
+		deviceInfoResponseCode = to_string(
+			static_cast<int>(deviceInfoResult.intermediateResponseCode));
+		deviceInfoResponseName = intermediateResponseCodeName(
+			deviceInfoResult.intermediateResponseCode);
+		if (deviceInfoResult.intermediateResponseCode != 0x00)
+			deviceInfoCompletion = deviceInfoResponseName;
+	}
+	logCtaEvent(
+		"query_completed", "outbound", "device_information",
+		deviceInfoCompletion, "", "", "", "startup", "1", "1",
+		"", "", "", "", deviceInfoResponseCode, deviceInfoResponseName);
 
 	LOG(INFO) << "starting commodity service...";
     std::thread commodity(commodity_service_loop,device);

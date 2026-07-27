@@ -16,10 +16,12 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <iomanip>
 
 #include <iostream>
 
 #include <fstream>
+#include <sstream>
 
 #include <sys/stat.h>
 
@@ -41,6 +43,78 @@ const char* commodityLogPath()
 	return configured != NULL && configured[0] != '\0'
 		? configured
 		: "logs/log.csv";
+}
+
+const char* deviceInfoLogPath()
+{
+	const char* configured = std::getenv("CTA_DEVICE_INFO_LOG_PATH");
+	return configured != NULL && configured[0] != '\0'
+		? configured
+		: "logs/cta_device_information.csv";
+}
+
+string csvEscape(const string& value)
+{
+	if (value.find_first_of(",\"\r\n") == string::npos)
+		return value;
+
+	string escaped = "\"";
+	for (string::const_iterator character = value.begin();
+			character != value.end(); ++character)
+	{
+		escaped += *character == '"' ? "\"\"" : string(1, *character);
+	}
+	escaped += '"';
+	return escaped;
+}
+
+string bytesToHex(const unsigned char *bytes, size_t count)
+{
+	ostringstream value;
+	value << uppercase << hex << setfill('0');
+	for (size_t index = 0; index < count; index++)
+		value << setw(2) << static_cast<unsigned int>(bytes[index]);
+	return value.str();
+}
+
+bool bytesAreAllZero(const unsigned char *bytes, size_t count)
+{
+	for (size_t index = 0; index < count; index++)
+	{
+		if (bytes[index] != 0)
+			return false;
+	}
+	return true;
+}
+
+string fixedAscii(const unsigned char *bytes, size_t count)
+{
+	size_t end = 0;
+	while (end < count && bytes[end] != 0)
+		end++;
+	while (end > 0 && bytes[end - 1] == ' ')
+		end--;
+	return string(reinterpret_cast<const char *>(bytes), end);
+}
+
+string redactSerial(const string& serial)
+{
+	if (serial.empty())
+		return "";
+	const size_t visible = serial.size() < 6 ? serial.size() / 2 : 6;
+	return serial.substr(0, visible) + string(serial.size() - visible, '*');
+}
+
+const char* deviceTypeName(unsigned short deviceType)
+{
+	switch (deviceType)
+	{
+	case 0x0002: return "Water Heater - Electric";
+	case 0x0003: return "Water Heater - Heat Pump";
+	case 0x001B: return "Water Heater - Heat Pump Variable Capacity/Speed";
+	case 0x001C: return "Water Heater - Phase Change Material";
+	default: return "Unknown";
+	}
 }
 
 void ensureLogDirectoryExists()
@@ -325,13 +399,140 @@ void UCMImpl::processMaxPayloadResponse(cea2045::MaxPayloadLengthCode maxPayload
 
 void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* message)
 {
-	LOG(INFO) << "device info response received";
+	const unsigned short payloadLength = message->getLength();
+	const unsigned char responseCode = message->responseCode;
+	const char* responseName = intermediateResponseCodeName(responseCode);
+	const bool hasVersion = payloadLength >= 5;
+	const bool hasVendorId = payloadLength >= 7;
+	const bool hasDeviceType = payloadLength >= 9;
+	const bool hasDeviceRevision = payloadLength >= 11;
+	const bool hasCapability = payloadLength >= 15;
+	const unsigned short vendorId =
+			hasVendorId ? message->getVendorID() : 0;
+	const unsigned short deviceType =
+			hasDeviceType ? message->getDeviceType() : 0;
+	const bool hasModel = payloadLength >= 32
+			&& !bytesAreAllZero(message->modelNumber, sizeof(message->modelNumber));
+	const bool hasSerial = payloadLength >= 48
+			&& !bytesAreAllZero(message->serialNumber, sizeof(message->serialNumber));
+	const string model = hasModel
+			? fixedAscii(message->modelNumber, sizeof(message->modelNumber)) : "";
+	const string serial = hasSerial
+			? fixedAscii(message->serialNumber, sizeof(message->serialNumber)) : "";
 
-	LOG(INFO) << "    device type: " << message->getDeviceType();
-	LOG(INFO) << "      vendor ID: " << message->getVendorID();
+	LOG(INFO) << "device info response received. response code: "
+			  << static_cast<int>(responseCode) << " - " << responseName;
+	if (hasVersion)
+		LOG(INFO) << "  CTA-2045 version: "
+				  << fixedAscii(message->version, sizeof(message->version));
+	if (hasDeviceType)
+		LOG(INFO) << "  device type: " << deviceType
+				  << " - " << deviceTypeName(deviceType);
+	if (hasVendorId)
+		LOG(INFO) << "  vendor ID: " << vendorId;
 
-	LOG(INFO) << "  firmware date: "
-			<< 2000 + (int)message->firmwareYear20xx << "-" << (int)message->firmwareMonth << "-" << (int)message->firmwareDay;
+	logCtaEvent(
+		"intermediate_response", "inbound", "device_information",
+		responseCode == 0x00 ? "success" : "error",
+		"", "", "", "device_response",
+		std::to_string(static_cast<int>(message->opCode1)),
+		std::to_string(static_cast<int>(message->opCode2)),
+		"", "", "", "",
+		std::to_string(static_cast<int>(responseCode)), responseName);
+
+	ofstream out(deviceInfoLogPath(), ios_base::out | ios_base::trunc);
+	if (!out.is_open())
+	{
+		LOG(ERROR) << "failed to open device information CSV: "
+				   << deviceInfoLogPath();
+		return;
+	}
+
+	out << "timestamp_pacific,opcode1,opcode2,response_code,response_name,"
+		   "payload_length,cta2045_version_raw_hex,cta2045_version,"
+		   "cta2045_b_version_valid,vendor_id_hex,device_type_hex,"
+		   "device_type_name,device_revision_hex,capability_bitmap_hex,"
+		   "model_number,model_number_supported,serial_number_redacted,"
+		   "serial_number_supported,firmware_year_raw,firmware_month_raw,"
+		   "firmware_day_raw,firmware_date,firmware_major,firmware_minor\n";
+
+	ostringstream vendorHex;
+	vendorHex << "0x" << uppercase << hex << setw(4) << setfill('0') << vendorId;
+	ostringstream deviceTypeHex;
+	deviceTypeHex << "0x" << uppercase << hex << setw(4) << setfill('0') << deviceType;
+	const bool validVersionB = hasVersion
+			&&
+			message->version[0] == 0x42 && message->version[1] == 0x00;
+
+	out << csvEscape(currentDateTime())
+		<< ',' << static_cast<unsigned int>(message->opCode1)
+		<< ',' << static_cast<unsigned int>(message->opCode2)
+		<< ',' << static_cast<unsigned int>(responseCode)
+		<< ',' << responseName
+		<< ',' << payloadLength
+		<< ',';
+	if (hasVersion)
+		out << bytesToHex(message->version, sizeof(message->version));
+	out << ',';
+	if (hasVersion)
+		out << csvEscape(fixedAscii(message->version, sizeof(message->version)));
+	out << ',';
+	if (hasVersion)
+		out << (validVersionB ? "true" : "false");
+	out << ',';
+	if (hasVendorId)
+		out << vendorHex.str();
+	out << ',';
+	if (hasDeviceType)
+		out << deviceTypeHex.str();
+	out << ',';
+	if (hasDeviceType)
+		out << csvEscape(deviceTypeName(deviceType));
+	out << ',';
+	if (hasDeviceRevision)
+		out << bytesToHex(message->deviceRevision, sizeof(message->deviceRevision));
+	out << ',';
+	if (hasCapability)
+		out << bytesToHex(message->capability, sizeof(message->capability));
+	out << ',' << csvEscape(model)
+		<< ',' << (hasModel ? "true" : "false")
+		<< ',' << csvEscape(redactSerial(serial))
+		<< ',' << (hasSerial ? "true" : "false");
+
+	const bool hasFirmwareYear = payloadLength >= 49;
+	const bool hasFirmwareMonth = payloadLength >= 50;
+	const bool hasFirmwareDay = payloadLength >= 51;
+	const bool hasFirmwareMajor = payloadLength >= 52;
+	const bool hasFirmwareMinor = payloadLength >= 53;
+	out << ',';
+	if (hasFirmwareYear)
+		out << static_cast<unsigned int>(message->firmwareYear20xx);
+	out << ',';
+	if (hasFirmwareMonth)
+		out << static_cast<unsigned int>(message->firmwareMonth);
+	out << ',';
+	if (hasFirmwareDay)
+		out << static_cast<unsigned int>(message->firmwareDay);
+	out << ',';
+	if (hasFirmwareYear && hasFirmwareMonth && hasFirmwareDay
+			&& message->firmwareMonth <= 11
+			&& message->firmwareDay >= 1 && message->firmwareDay <= 31)
+	{
+		ostringstream firmwareDate;
+		firmwareDate << 2000 + static_cast<unsigned int>(message->firmwareYear20xx)
+					 << '-' << setw(2) << setfill('0')
+					 << 1 + static_cast<unsigned int>(message->firmwareMonth)
+					 << '-' << setw(2)
+					 << static_cast<unsigned int>(message->firmwareDay);
+		out << firmwareDate.str();
+	}
+	out << ',';
+	if (hasFirmwareMajor)
+		out << static_cast<unsigned int>(message->firmwareMajor);
+	out << ',';
+	if (hasFirmwareMinor)
+		out << static_cast<unsigned int>(message->firmwareMinor);
+	out << '\n';
 }
 
 //======================================================================================
