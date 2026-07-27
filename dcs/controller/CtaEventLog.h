@@ -17,6 +17,8 @@ void logCtaEvent(
     const std::string& nakCode = "",
     const std::string& nakReason = "",
     const std::string& operationalState = "",
-    const std::string& operationalStateName = "");
+    const std::string& operationalStateName = "",
+    const std::string& intermediateResponseCode = "",
+    const std::string& intermediateResponseName = "");
 
 #endif

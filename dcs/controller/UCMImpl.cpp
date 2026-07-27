@@ -28,7 +28,7 @@ namespace
 {
 const char* LOG_DIRECTORY = "logs";
 const char* COMMODITY_CSV_HEADER =
-	"timestamp_pacific,"
+	"timestamp_pacific,response_code,response_name,"
 	"commodity_code_1,cumulative_Wh_1,insta_rate_W_1,,"
 	"commodity_code_2,cumulative_Wh_2,insta_rate_W_2,,"
 	"commodity_code_3,cumulative_Wh_3,insta_rate_W_3,"
@@ -240,6 +240,37 @@ const char* commodityCodeName(unsigned char code)
 	}
 }
 
+bool commodityUsesInstantaneousRate(unsigned char code)
+{
+	// CTA-2045 CommodityRead defines the field in every record, but storage
+	// capacity commodities use only the cumulative-amount field.
+	return code != 6 && code != 7 && code != 10 && code != 11;
+}
+
+bool commodityIsRecordedInCsv(unsigned char code)
+{
+	// Codes 8 and 9 are parsed and described above for possible future use,
+	// but this test does not record rated maximum levels in its commodity CSV.
+	return code != 8 && code != 9;
+}
+
+const char* intermediateResponseCodeName(unsigned char code)
+{
+	switch (code)
+	{
+	case 0x00: return "success";
+	case 0x01: return "command_not_implemented";
+	case 0x02: return "bad_value";
+	case 0x03: return "command_length_error";
+	case 0x04: return "response_length_error";
+	case 0x05: return "busy";
+	case 0x06: return "other_error";
+	case 0x07: return "customer_override";
+	case 0x08: return "command_not_enabled";
+	default: return "reserved";
+	}
+}
+
 const char* operationalStateName(unsigned char code)
 {
 	switch (code)
@@ -323,7 +354,28 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 
 void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* message)
 {
-	LOG(INFO) << "commodity response received.  count: " << message->getCommodityDataCount();
+	const unsigned char responseCode = message->responseCode;
+	const char* responseName = intermediateResponseCodeName(responseCode);
+	LOG(INFO) << "commodity response received. response code: "
+			  << static_cast<int>(responseCode) << " - " << responseName
+			  << "; count: " << message->getCommodityDataCount();
+	logCtaEvent(
+		"intermediate_response",
+		"inbound",
+		"get_commodity",
+		responseCode == 0x00 ? "success" : "error",
+		"",
+		"",
+		"",
+		"device_response",
+		"6",
+		"128",
+		"",
+		"",
+		"",
+		"",
+		std::to_string(static_cast<int>(responseCode)),
+		responseName);
 	lock_guard<mutex> logLock(m_commodityLogMutex);
 	const char* csvLogPath = commodityLogPath();
 	struct stat logFileInfo;
@@ -344,35 +396,58 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 	if (m_commodityRowPending)
 		out << ",\n";
 
-	int count = message->getCommodityDataCount();
+	const int count = message->getCommodityDataCount();
 	if (count > 3)
-		LOG(WARNING) << "commodity CSV supports three commodity groups; received "
-					 << count << " and will record the first three";
-	out << currentDateTime();
-	for (int x = 0; x < 3; x++)
+		LOG(WARNING) << "commodity CSV supports three recorded commodity groups; received "
+					 << count;
+	out << currentDateTime()
+		<< ',' << static_cast<int>(responseCode)
+		<< ',' << responseName;
+	int dataIndex = 0;
+	for (int csvGroup = 0; csvGroup < 3; csvGroup++)
 	{
-		if (x > 0)
+		if (csvGroup > 0)
 			out << ','; // blank separator column between commodity groups
-		if (x >= count)
+
+		cea2045::cea2045CommodityData *data = nullptr;
+		unsigned char commodityCode = 0;
+		bool isMeasured = false;
+		while (dataIndex < count)
+		{
+			data = message->getCommodityData(dataIndex++);
+			const unsigned char rawCommodityCode = data->commodityCode;
+			commodityCode = rawCommodityCode & 0x7F;
+			isMeasured = (rawCommodityCode & 0x80) != 0;
+			if (commodityIsRecordedInCsv(commodityCode))
+				break;
+
+			LOG(INFO) << "commodity code " << static_cast<int>(commodityCode)
+					  << " - " << commodityCodeName(commodityCode)
+					  << " is not recorded in the commodity CSV";
+			data = nullptr;
+		}
+
+		if (data == nullptr)
 		{
 			out << ",,,";
 			continue;
 		}
 
-		cea2045::cea2045CommodityData *data = message->getCommodityData(x);
-		const unsigned char rawCommodityCode = data->commodityCode;
-		const unsigned char commodityCode = rawCommodityCode & 0x7F;
-		const bool isMeasured = (rawCommodityCode & 0x80) != 0;
-
-		LOG(INFO) << "commodity data: " << x;
+		LOG(INFO) << "commodity CSV group: " << csvGroup;
 		LOG(INFO) << "  commodity code: " << static_cast<int>(commodityCode)
 				  << " - " << commodityCodeName(commodityCode);
 		LOG(INFO) << "           source: " << (isMeasured ? "Measured" : "Estimated");
 		LOG(INFO) << "  cumulative: " << data->getCumulativeAmount();
-		LOG(INFO) << "   inst rate: " << data->getInstantaneousRate();
+		if (commodityUsesInstantaneousRate(commodityCode))
+			LOG(INFO) << "   inst rate: " << data->getInstantaneousRate();
+		else
+			LOG(INFO) << "   inst rate: not used for this commodity code";
+
 		out << ',' << static_cast<int>(commodityCode)
 			<< ',' << data->getCumulativeAmount()
-			<< ',' << data->getInstantaneousRate();
+			<< ',';
+		if (commodityUsesInstantaneousRate(commodityCode))
+			out << data->getInstantaneousRate();
 	}
 	m_commodityRowPending = true;
 }

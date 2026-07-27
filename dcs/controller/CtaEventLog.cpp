@@ -80,7 +80,9 @@ void logCtaEvent(
     const std::string& nakCode,
     const std::string& nakReason,
     const std::string& operationalState,
-    const std::string& operationalStateName)
+    const std::string& operationalStateName,
+    const std::string& intermediateResponseCode,
+    const std::string& intermediateResponseName)
 {
     std::lock_guard<std::mutex> lock(eventLogMutex);
     mkdir(LOG_DIRECTORY, 0755);
@@ -96,7 +98,8 @@ void logCtaEvent(
     if (needsHeader)
         output << "timestamp_pacific,event_id,event,direction,command,result,"
                   "argument,source,opcode1,opcode2,nak_code,nak_reason,"
-                  "operational_state,operational_state_name,details\n";
+                  "operational_state,operational_state_name,"
+                  "intermediate_response_code,intermediate_response_name,details\n";
 
     output << csvEscape(currentPacificTimestamp()) << ','
            << csvEscape(eventId) << ','
@@ -112,6 +115,8 @@ void logCtaEvent(
            << csvEscape(nakReason) << ','
            << csvEscape(operationalState) << ','
            << csvEscape(operationalStateName) << ','
+           << csvEscape(intermediateResponseCode) << ','
+           << csvEscape(intermediateResponseName) << ','
            << csvEscape(details) << '\n';
     output.flush();
 }
