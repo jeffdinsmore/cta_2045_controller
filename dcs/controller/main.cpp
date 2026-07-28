@@ -491,7 +491,7 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    if (tolower(cmd) == 'a')
 	    {
 	        if (argumentText.empty() || valueText.empty() || unitsText.empty()
-	            || argumentValue == 0 || argumentValue > 0xFFFF
+	            || argumentValue > 0xFFFF
 	            || advancedValue == 0 || advancedValue > 0xFFFE
 	            || advancedUnits > 0x03)
 	        {

@@ -32,9 +32,11 @@ namespace
 const char* LOG_DIRECTORY = "logs";
 const char* COMMODITY_CSV_HEADER =
 	"timestamp_pacific,response_code,response_name,"
-	"commodity_code_1,cumulative_Wh_1,insta_rate_W_1,,"
-	"commodity_code_2,cumulative_Wh_2,insta_rate_W_2,,"
-	"commodity_code_3,cumulative_Wh_3,insta_rate_W_3,"
+	"electricity_commodity_code,cumulative_electricity_Wh,instantaneous_electricity_W,"
+	"total_storage_commodity_code,total_energy_storage_Wh,"
+	"present_storage_commodity_code,present_energy_storage_Wh,"
+	"advanced_total_storage_commodity_code,advanced_total_energy_storage_Wh,"
+	"advanced_present_storage_commodity_code,advanced_present_energy_storage_Wh,"
 	"operational_state";
 
 const char* commodityLogPath()
@@ -77,14 +79,18 @@ string bytesToHex(const unsigned char *bytes, size_t count)
 	return value.str();
 }
 
-bool bytesAreAllZero(const unsigned char *bytes, size_t count)
+bool optionalAsciiFieldIsUnsupported(const unsigned char *bytes, size_t count)
 {
+	bool allBinaryZeros = true;
+	bool allAsciiZeros = true;
 	for (size_t index = 0; index < count; index++)
 	{
 		if (bytes[index] != 0)
-			return false;
+			allBinaryZeros = false;
+		if (bytes[index] != static_cast<unsigned char>('0'))
+			allAsciiZeros = false;
 	}
-	return true;
+	return allBinaryZeros || allAsciiZeros;
 }
 
 string fixedAscii(const unsigned char *bytes, size_t count)
@@ -412,9 +418,11 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 	const unsigned short deviceType =
 			hasDeviceType ? message->getDeviceType() : 0;
 	const bool hasModel = payloadLength >= 32
-			&& !bytesAreAllZero(message->modelNumber, sizeof(message->modelNumber));
+			&& !optionalAsciiFieldIsUnsupported(
+				message->modelNumber, sizeof(message->modelNumber));
 	const bool hasSerial = payloadLength >= 48
-			&& !bytesAreAllZero(message->serialNumber, sizeof(message->serialNumber));
+			&& !optionalAsciiFieldIsUnsupported(
+				message->serialNumber, sizeof(message->serialNumber));
 	const string model = hasModel
 			? fixedAscii(message->modelNumber, sizeof(message->modelNumber)) : "";
 	const string serial = hasSerial
@@ -582,57 +590,60 @@ void UCMImpl::processCommodityResponse(cea2045::cea2045CommodityResponse* messag
 		out << ",\n";
 
 	const int count = message->getCommodityDataCount();
-	if (count > 3)
-		LOG(WARNING) << "commodity CSV supports three recorded commodity groups; received "
-					 << count;
-	out << currentDateTime()
-		<< ',' << static_cast<int>(responseCode)
-		<< ',' << responseName;
-	int dataIndex = 0;
-	for (int csvGroup = 0; csvGroup < 3; csvGroup++)
+	cea2045::cea2045CommodityData *recorded[12] = {};
+	for (int dataIndex = 0; dataIndex < count; dataIndex++)
 	{
-		if (csvGroup > 0)
-			out << ','; // blank separator column between commodity groups
+		cea2045::cea2045CommodityData *data =
+				message->getCommodityData(dataIndex);
+		const unsigned char rawCommodityCode = data->commodityCode;
+		const unsigned char commodityCode = rawCommodityCode & 0x7F;
+		const bool isMeasured = (rawCommodityCode & 0x80) != 0;
 
-		cea2045::cea2045CommodityData *data = nullptr;
-		unsigned char commodityCode = 0;
-		bool isMeasured = false;
-		while (dataIndex < count)
+		if (commodityCode >= 12 || !commodityIsRecordedInCsv(commodityCode)
+				|| (commodityCode != 0 && commodityCode != 6
+					&& commodityCode != 7 && commodityCode != 10
+					&& commodityCode != 11))
 		{
-			data = message->getCommodityData(dataIndex++);
-			const unsigned char rawCommodityCode = data->commodityCode;
-			commodityCode = rawCommodityCode & 0x7F;
-			isMeasured = (rawCommodityCode & 0x80) != 0;
-			if (commodityIsRecordedInCsv(commodityCode))
-				break;
-
 			LOG(INFO) << "commodity code " << static_cast<int>(commodityCode)
 					  << " - " << commodityCodeName(commodityCode)
 					  << " is not recorded in the commodity CSV";
-			data = nullptr;
-		}
-
-		if (data == nullptr)
-		{
-			out << ",,,";
 			continue;
 		}
 
-		LOG(INFO) << "commodity CSV group: " << csvGroup;
-		LOG(INFO) << "  commodity code: " << static_cast<int>(commodityCode)
+		recorded[commodityCode] = data;
+		LOG(INFO) << "commodity code: " << static_cast<int>(commodityCode)
 				  << " - " << commodityCodeName(commodityCode);
-		LOG(INFO) << "           source: " << (isMeasured ? "Measured" : "Estimated");
+		LOG(INFO) << "           source: "
+				  << (isMeasured ? "Measured" : "Estimated");
 		LOG(INFO) << "  cumulative: " << data->getCumulativeAmount();
 		if (commodityUsesInstantaneousRate(commodityCode))
 			LOG(INFO) << "   inst rate: " << data->getInstantaneousRate();
 		else
 			LOG(INFO) << "   inst rate: not used for this commodity code";
+	}
 
-		out << ',' << static_cast<int>(commodityCode)
-			<< ',' << data->getCumulativeAmount()
-			<< ',';
-		if (commodityUsesInstantaneousRate(commodityCode))
-			out << data->getInstantaneousRate();
+	out << currentDateTime()
+		<< ',' << static_cast<int>(responseCode)
+		<< ',' << responseName;
+
+	if (recorded[0] != nullptr)
+	{
+		out << ",0," << recorded[0]->getCumulativeAmount()
+			<< ',' << recorded[0]->getInstantaneousRate();
+	}
+	else
+		out << ",,,";
+
+	const unsigned char storageCodes[] = {6, 7, 10, 11};
+	for (size_t index = 0;
+			index < sizeof(storageCodes) / sizeof(storageCodes[0]); index++)
+	{
+		const unsigned char commodityCode = storageCodes[index];
+		if (recorded[commodityCode] != nullptr)
+			out << ',' << static_cast<unsigned int>(commodityCode)
+				<< ',' << recorded[commodityCode]->getCumulativeAmount();
+		else
+			out << ",,";
 	}
 	m_commodityRowPending = true;
 }
