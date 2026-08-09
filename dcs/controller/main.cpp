@@ -402,7 +402,9 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
     string header,line,lines;
     const chrono::seconds schedulerInterval(1);
     const chrono::seconds commodityInterval(60);
+    const chrono::seconds operationalStateInterval(30);
     chrono::steady_clock::time_point nextCommodityRead = chrono::steady_clock::now();
+    chrono::steady_clock::time_point nextOperationalStateRead = chrono::steady_clock::now();
     while (1)
     {
 	bool scheduleChanged = false;
@@ -577,9 +579,9 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    }
 	}
 	// ------------------------------ end of scheduler ----------------------
-	// Commodity and operational-state polling use an independent 60-second
-	// clock. Scheduled commands are checked every second, including during
-	// the 59 seconds between periodic reads.
+	// Commodity polling uses a 60-second clock while operational-state polling
+	// uses a 30-second clock. Scheduled commands are checked every second
+	// between periodic reads.
 	if (chrono::steady_clock::now() >= nextCommodityRead)
 	{
 	    // dev->intermediateGetDeviceInformation().get();
@@ -614,7 +616,13 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	            "query_exception", "outbound", "get_commodity", "error",
 	            "", error.what(), "", "periodic", "6", "0");
 	    }
+	    nextCommodityRead += commodityInterval;
+	    if (nextCommodityRead <= chrono::steady_clock::now())
+	        nextCommodityRead = chrono::steady_clock::now() + commodityInterval;
+	}
 
+	if (chrono::steady_clock::now() >= nextOperationalStateRead)
+	{
 	    logCtaEvent(
 	        "query_sent", "outbound", "query_operational_state", "pending",
 	        "", "", "", "periodic", "18", "0");
@@ -633,9 +641,10 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	            "", error.what(), "", "periodic", "18", "0");
 	    }
 
-	    nextCommodityRead += commodityInterval;
-	    if (nextCommodityRead <= chrono::steady_clock::now())
-	        nextCommodityRead = chrono::steady_clock::now() + commodityInterval;
+	    nextOperationalStateRead += operationalStateInterval;
+	    if (nextOperationalStateRead <= chrono::steady_clock::now())
+	        nextOperationalStateRead = (
+	            chrono::steady_clock::now() + operationalStateInterval);
 	}
         this_thread::sleep_for(schedulerInterval);
     }

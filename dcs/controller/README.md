@@ -6,7 +6,8 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
 
 - `main.cpp` opens the serial connection, runs the command loop, and processes
   scheduled commands. The schedule is checked once per second, independently
-  of the 60-second commodity and operational-state polling interval.
+  of the periodic queries. Commodity data is requested every 60 seconds and
+  operational state is requested every 30 seconds.
 - `UCMImpl.cpp` and `UCMImpl.h` handle responses received from the water heater.
 - `logs/cta_events.csv` records Pacific timestamps for command dispatch and
   completion, link/application ACK or NAK callbacks, operational states, and
