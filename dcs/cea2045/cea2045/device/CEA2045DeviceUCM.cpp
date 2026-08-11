@@ -323,6 +323,20 @@ std::future<ResponseCodes> CEA2045DeviceUCM::intermediateSetAdvancedLoadUp(
     return queueRequest(setAdvancedLoadUp);
 }
 
+std::future<ResponseCodes> CEA2045DeviceUCM::intermediateSetAdvancedLoadUp(
+    unsigned short duration,
+    unsigned short value,
+    unsigned char units,
+    unsigned char efficiency)
+{
+    return queueRequest(new SetAdvancedLoadUp(
+        duration,
+        value,
+        units,
+        efficiency
+    ));
+}
+
 std::future<ResponseCodes>
 CEA2045DeviceUCM::intermediateSetCapabilityBit(
     unsigned char bitNumber,

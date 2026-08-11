@@ -106,8 +106,30 @@
 #include <cea2045/message/CEA2045MessageCommodityResponse.h>
 #include <cea2045/message/CEA2045MessageDeviceInfoResponse.h>
 #include <cea2045/message/ConvertEnums.h>
+#include <cea2045/device/message/SetAdvancedLoadUp.h>
+#include <cea2045/util/Checksum.h>
 
 using namespace cea2045;
+
+TEST_CASE("AdvancedLoadUpOptionalEfficiency", "CEA2045Message")
+{
+	SetAdvancedLoadUp withoutEfficiency(60, 5, 2);
+	REQUIRE(withoutEfficiency.getNumBytes() == 13);
+	REQUIRE(withoutEfficiency.getBuffer()[2] == 0);
+	REQUIRE(withoutEfficiency.getBuffer()[3] == 7);
+	REQUIRE(withoutEfficiency.getBuffer()[10] == 2);
+	REQUIRE(Checksum::validate(
+		withoutEfficiency.getBuffer(), withoutEfficiency.getNumBytes()));
+
+	SetAdvancedLoadUp withEfficiency(60, 5, 2, 0);
+	REQUIRE(withEfficiency.getNumBytes() == 14);
+	REQUIRE(withEfficiency.getBuffer()[2] == 0);
+	REQUIRE(withEfficiency.getBuffer()[3] == 8);
+	REQUIRE(withEfficiency.getBuffer()[10] == 2);
+	REQUIRE(withEfficiency.getBuffer()[11] == 0);
+	REQUIRE(Checksum::validate(
+		withEfficiency.getBuffer(), withEfficiency.getNumBytes()));
+}
 
 //===========================================================================
 

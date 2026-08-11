@@ -32,7 +32,7 @@ INITIALIZE_EASYLOGGINGPP
 
 #include <cea2045/util/MSTimer.h>
 
-void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
+void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
 void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
 
 const char* scheduledCommandName(char cmd)
@@ -316,13 +316,14 @@ int main()
 }
 
 
-void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev){
+void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev){
 	const string commandName = scheduledCommandName(cmd);
 	string argumentText = to_string(argument);
 	if (tolower(cmd) == 'a')
 		argumentText = "duration_minutes=" + to_string(argument)
 			+ ";value=" + to_string(value)
-			+ ";units=" + to_string(units);
+			+ ";units=" + to_string(units)
+			+ ";efficiency=" + (hasEfficiency ? to_string(efficiency) : "not_included");
 	const string opcode1 = scheduledCommandOpcode1(cmd);
 	const string opcode2 = tolower(cmd) == 'a' ? "" : to_string(argument);
 	logCtaEvent(
@@ -333,10 +334,17 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
     switch (tolower(cmd)){
 		case 'a':
 			cout << "advanced load up"<< endl;
-			result = dev->intermediateSetAdvancedLoadUp(
-				static_cast<unsigned short>(argument),
-				static_cast<unsigned short>(value),
-				static_cast<unsigned char>(units)).get();
+			if (hasEfficiency)
+				result = dev->intermediateSetAdvancedLoadUp(
+					static_cast<unsigned short>(argument),
+					static_cast<unsigned short>(value),
+					static_cast<unsigned char>(units),
+					static_cast<unsigned char>(efficiency)).get();
+			else
+				result = dev->intermediateSetAdvancedLoadUp(
+					static_cast<unsigned short>(argument),
+					static_cast<unsigned short>(value),
+					static_cast<unsigned char>(units)).get();
 			break;
 		case 's':
             cout<<"shedding"<<endl;
@@ -414,13 +422,13 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		cout<<"FAILED TO OPEN SCHEDULE.CSV"<<endl;
 	// prime the buffer -- skip the header
 	getline(file,header);
-	lines = "# time,command,argument,event_id,value,units\n";
+    lines = "# time,command,argument,event_id,value,units,efficiency\n";
 	while (getline(file,line))
 	{
 	    if (line.empty() || line[0] == '#')
 	        continue;
 
-	    string timestampText, commandText, argumentText, eventId, valueText, unitsText;
+	    string timestampText, commandText, argumentText, eventId, valueText, unitsText, efficiencyText;
 	    stringstream row(line);
 	    getline(row, timestampText, ',');
 	    getline(row, commandText, ',');
@@ -428,6 +436,7 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    getline(row, eventId, ',');
 	    getline(row, valueText, ',');
 	    getline(row, unitsText, ',');
+	    getline(row, efficiencyText, ',');
 	    const auto trim = [](string& value)
 	    {
 	        while (!value.empty() && isspace(static_cast<unsigned char>(value.front())))
@@ -441,11 +450,13 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	    trim(eventId);
 	    trim(valueText);
 	    trim(unitsText);
+	    trim(efficiencyText);
 
 	    time_t t;
 	    unsigned long argumentValue = 0;
 	    unsigned long advancedValue = 0;
 	    unsigned long advancedUnits = 0;
+	    unsigned long advancedEfficiency = 0;
 	    try
 	    {
 	        size_t timestampEnd = 0;
@@ -474,6 +485,13 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	            if (unitsEnd != unitsText.size())
 	                throw invalid_argument("advanced units contain unexpected characters");
 	        }
+	        if (!efficiencyText.empty())
+	        {
+	            size_t efficiencyEnd = 0;
+	            advancedEfficiency = stoul(efficiencyText, &efficiencyEnd);
+	            if (efficiencyEnd != efficiencyText.size())
+	                throw invalid_argument("advanced efficiency contains unexpected characters");
+	        }
 	    }
 	    catch (const exception& error)
 	    {
@@ -495,14 +513,16 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        if (argumentText.empty() || valueText.empty() || unitsText.empty()
 	            || argumentValue > 0xFFFF
 	            || advancedValue == 0 || advancedValue > 0xFFFE
-	            || advancedUnits > 0x03)
+	            || advancedUnits > 0x03
+	            || (!efficiencyText.empty() && advancedEfficiency > 10))
 	        {
 	            LOG(ERROR) << "invalid advanced load-up arguments retained: " << line;
 	            lines += line + "\n";
 	            continue;
 	        }
 	    }
-	    else if (argumentValue > 0xFF || !valueText.empty() || !unitsText.empty())
+	    else if (argumentValue > 0xFF || !valueText.empty() || !unitsText.empty()
+	             || !efficiencyText.empty())
 	    {
 	        LOG(ERROR) << "invalid Basic DR arguments retained: " << line;
 	        lines += line + "\n";
@@ -523,6 +543,8 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		        static_cast<unsigned int>(argumentValue),
 		        static_cast<unsigned int>(advancedValue),
 		        static_cast<unsigned int>(advancedUnits),
+		        !efficiencyText.empty(),
+		        static_cast<unsigned int>(advancedEfficiency),
 		        eventId,
 		        dev);
 		    }
@@ -544,22 +566,9 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		else
 		{
 		    // did not pass, leave it be for the future
-		    lines += to_string(t) + ',' + cmd;
-		    if (!argumentText.empty())
-		        lines += ',' + argumentText;
-		    else if (!eventId.empty())
-		        lines += ',';
-		    if (!eventId.empty())
-		        lines += ',' + eventId;
-		    else if (!valueText.empty() || !unitsText.empty())
-		        lines += ',';
-		    if (!valueText.empty())
-		        lines += ',' + valueText;
-		    else if (!unitsText.empty())
-		        lines += ',';
-		    if (!unitsText.empty())
-		        lines += ',' + unitsText;
-		    lines += "\n";
+		    lines += to_string(t) + ',' + cmd + ',' + argumentText + ','
+		        + eventId + ',' + valueText + ',' + unitsText + ','
+		        + efficiencyText + "\n";
 		}
 	}
 	file.close();

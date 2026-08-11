@@ -147,6 +147,12 @@ public:
     	unsigned short value,
     	unsigned char units
 	);
+	std::future<ResponseCodes> intermediateSetAdvancedLoadUp(
+		unsigned short duration,
+		unsigned short value,
+		unsigned char units,
+		unsigned char efficiency
+	);
 	std::future<ResponseCodes> intermediateSetCapabilityBit(
     	unsigned char bitNumber,
     	bool enabled

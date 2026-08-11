@@ -9,29 +9,32 @@ namespace cea2045 {
 
 class SetAdvancedLoadUp : public Message {
 private:
-    struct SetAdvancedLoadUpMsg {
+    struct MandatoryFields {
         struct cea2045MessageHeader header;
         unsigned char opCode1;
         unsigned char opCode2;
         unsigned short duration;
         unsigned short value;
         unsigned char units;
-        unsigned short checksum;
-
-        void setLength() {
-            header.length = htobe16(7);  // Fixed length from spec example
-        }
-
-        void setChecksum() {
-            this->checksum = Checksum::calculate((unsigned char*)this, 
-                sizeof(SetAdvancedLoadUpMsg) - sizeof(unsigned short));
-        }
     } __attribute__((packed));
 
-    SetAdvancedLoadUpMsg m_msg;
+    unsigned char m_buffer[sizeof(MandatoryFields) + 1 + sizeof(unsigned short)];
+    int m_numBytes;
+
+    void initialize(
+        unsigned short duration,
+        unsigned short value,
+        unsigned char units,
+        bool hasEfficiency,
+        unsigned char efficiency);
 
 public:
     SetAdvancedLoadUp(unsigned short duration, unsigned short value, unsigned char units);
+    SetAdvancedLoadUp(
+        unsigned short duration,
+        unsigned short value,
+        unsigned char units,
+        unsigned char efficiency);
     virtual ~SetAdvancedLoadUp();
 
     virtual int getNumBytes();
