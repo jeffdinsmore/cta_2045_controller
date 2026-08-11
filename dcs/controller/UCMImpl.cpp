@@ -155,6 +155,8 @@ const char* messageCodeName(cea2045::MessageCode code)
 		return "support_intermediate_messages";
 	case cea2045::MessageCode::ADVANCED_LOAD_UP_REQUEST:
 		return "advanced_load_up";
+	case cea2045::MessageCode::GET_ADVANCED_LOAD_UP_REQUEST:
+		return "get_advanced_load_up";
 	case cea2045::MessageCode::SET_CAPABILITY_BIT_REQUEST:
 		return "set_capability_bit";
 	case cea2045::MessageCode::BASIC_CRITICAL_PEAK_EVENT_REQUEST:
@@ -228,6 +230,7 @@ std::string messageCodeOpcode1(cea2045::MessageCode code)
 	switch (code)
 	{
 	case cea2045::MessageCode::ADVANCED_LOAD_UP_REQUEST: return "12";
+	case cea2045::MessageCode::GET_ADVANCED_LOAD_UP_REQUEST: return "12";
 	case cea2045::MessageCode::BASIC_CRITICAL_PEAK_EVENT_REQUEST: return "10";
 	case cea2045::MessageCode::BASIC_END_SHED_REQUEST: return "2";
 	case cea2045::MessageCode::BASIC_SHED_REQUEST: return "1";
@@ -674,6 +677,41 @@ void UCMImpl::processSetAdvancedLoadUpResponse(
 		"",
 		std::to_string(static_cast<int>(responseCode)),
 		responseName);
+}
+
+//======================================================================================
+
+void UCMImpl::processGetAdvancedLoadUpResponse(
+		cea2045::cea2045GetAdvancedLoadUpResponse *message,
+		unsigned short payloadLength)
+{
+	const bool hasEfficiency = payloadLength >= 9;
+	const unsigned char *payload =
+		reinterpret_cast<const unsigned char *>(message) + sizeof(cea2045::cea2045MessageHeader);
+	const unsigned char efficiency = hasEfficiency ? payload[8] : 0;
+	const string efficiencyStatus = !hasEfficiency
+		? "not_reported"
+		: (efficiency <= 10 ? "defined" : "reserved");
+	const unsigned char responseCode = message->responseCode;
+	const char* responseName = intermediateResponseCodeName(responseCode);
+	const string details =
+		"duration_minutes=" + to_string(message->getEventDuration())
+		+ ";value=" + to_string(message->getValue())
+		+ ";units=" + to_string(static_cast<unsigned int>(message->units))
+		+ ";efficiency=" + (hasEfficiency
+			? to_string(static_cast<unsigned int>(efficiency))
+			: "not_reported")
+		+ ";efficiency_status=" + efficiencyStatus
+		+ ";payload_length=" + to_string(payloadLength);
+	LOG(INFO) << "advanced load up readback: " << details;
+	logCtaEvent(
+		"advanced_load_up_readback", "inbound", "get_advanced_load_up",
+		responseCode == 0x00 ? "success" : "error", details,
+		"", "", "device_response",
+		to_string(static_cast<int>(message->opCode1)),
+		to_string(static_cast<int>(message->opCode2)),
+		"", "", "", "",
+		to_string(static_cast<int>(responseCode)), responseName);
 }
 
 //======================================================================================

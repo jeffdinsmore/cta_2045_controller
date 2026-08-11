@@ -107,6 +107,8 @@
 #include <cea2045/message/CEA2045MessageDeviceInfoResponse.h>
 #include <cea2045/message/ConvertEnums.h>
 #include <cea2045/device/message/SetAdvancedLoadUp.h>
+#include <cea2045/device/message/Intermediate.h>
+#include <cea2045/message/CEA2045MessageGetAdvancedLoadUpResponse.h>
 #include <cea2045/util/Checksum.h>
 
 using namespace cea2045;
@@ -129,6 +131,38 @@ TEST_CASE("AdvancedLoadUpOptionalEfficiency", "CEA2045Message")
 	REQUIRE(withEfficiency.getBuffer()[11] == 0);
 	REQUIRE(Checksum::validate(
 		withEfficiency.getBuffer(), withEfficiency.getNumBytes()));
+}
+
+TEST_CASE("GetAdvancedLoadUpRequest", "CEA2045Message")
+{
+	Intermediate request(
+		MessageCode::GET_ADVANCED_LOAD_UP_REQUEST, 0x0C, 0x00);
+	REQUIRE(request.getNumBytes() == 8);
+	REQUIRE(request.getBuffer()[0] == 0x08);
+	REQUIRE(request.getBuffer()[1] == 0x02);
+	REQUIRE(request.getBuffer()[2] == 0x00);
+	REQUIRE(request.getBuffer()[3] == 0x02);
+	REQUIRE(request.getBuffer()[4] == 0x0C);
+	REQUIRE(request.getBuffer()[5] == 0x00);
+	REQUIRE(Checksum::validate(request.getBuffer(), request.getNumBytes()));
+}
+
+TEST_CASE("GetAdvancedLoadUpMandatoryAndEfficiencyFields", "CEA2045Message")
+{
+	unsigned char buffer[] = {
+		0x08, 0x02, 0x00, 0x09,
+		0x0C, 0x80, 0x00, 0x00, 0x1E, 0x00, 0x05, 0x02, 0x05,
+		0x00, 0x00
+	};
+	cea2045GetAdvancedLoadUpResponse *response =
+		reinterpret_cast<cea2045GetAdvancedLoadUpResponse *>(buffer);
+	REQUIRE(response->header.getLength() == 9);
+	REQUIRE(response->responseCode == 0);
+	REQUIRE(response->getEventDuration() == 30);
+	REQUIRE(response->getValue() == 5);
+	REQUIRE(response->units == 2);
+	const unsigned char *payload = buffer + sizeof(cea2045MessageHeader);
+	REQUIRE(payload[8] == 5);
 }
 
 //===========================================================================

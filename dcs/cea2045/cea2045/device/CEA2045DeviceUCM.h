@@ -147,6 +147,7 @@ public:
     	unsigned short value,
     	unsigned char units
 	);
+	std::future<ResponseCodes> intermediateGetAdvancedLoadUp();
 	std::future<ResponseCodes> intermediateSetAdvancedLoadUp(
 		unsigned short duration,
 		unsigned short value,

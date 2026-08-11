@@ -399,6 +399,34 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 			completionResult, argumentText,
 			"", eventId, "schedule", opcode1, opcode2,
 			"", "", "", "", intermediateCode, intermediateName);
+
+		if (tolower(cmd) == 'a'
+				&& result.responesCode == ResponseCode::OK
+				&& result.hasIntermediateResponseCode
+				&& result.intermediateResponseCode == 0x00)
+		{
+			logCtaEvent(
+				"verification_sent", "outbound", "get_advanced_load_up",
+				"pending", "", "", eventId, "automatic_readback", "12", "0");
+			ResponseCodes readback = dev->intermediateGetAdvancedLoadUp().get();
+			string readbackResult = responseCodeName(readback.responesCode);
+			string readbackCode;
+			string readbackName;
+			if (readback.responesCode == ResponseCode::OK
+					&& readback.hasIntermediateResponseCode)
+			{
+				readbackCode = to_string(
+					static_cast<int>(readback.intermediateResponseCode));
+				readbackName = intermediateResponseCodeName(
+					readback.intermediateResponseCode);
+				if (readback.intermediateResponseCode != 0x00)
+					readbackResult = readbackName;
+			}
+			logCtaEvent(
+				"verification_completed", "outbound", "get_advanced_load_up",
+				readbackResult, "", "", eventId, "automatic_readback", "12", "0",
+				"", "", "", "", readbackCode, readbackName);
+		}
 	}
     return;
 }

@@ -1,39 +1,30 @@
 #ifndef CEA2045_CEA2045_MESSAGE_CEA2045MESSAGEGETADVANCEDLOADUPRESPONSE_H_
 #define CEA2045_CEA2045_MESSAGE_CEA2045MESSAGEGETADVANCEDLOADUPRESPONSE_H_
 
-#include "CEA2045MessageMacros.h"
+#include "CEA2045Message.h"
+#include <endian.h>
 
 namespace cea2045 {
 
 struct cea2045GetAdvancedLoadUpResponse
 {
-	unsigned char msgType1;
-	unsigned char msgType2;
-	unsigned short length;
+	cea2045MessageHeader header;
 	unsigned char opCode1;
 	unsigned char opCode2;
-	unsigned char eventDuration;
+	unsigned char responseCode;
+	unsigned short eventDuration;
 	unsigned short value;
-	unsigned short unit;
-	unsigned short checksum;
+	unsigned char units;
 
-	void seteventDuration(unsigned char value)
+	unsigned short getEventDuration() const
 	{
-		eventDuration = htobe16(value);
+		return be16toh(eventDuration);
 	}
 
-	void setvalue(unsigned short Value)
+	unsigned short getValue() const
 	{
-		value = htobe16(Value);
+		return be16toh(value);
 	}
-
-	void setunit(unsigned short value)
-	{
-		unit = htobe16(value);
-	}
-
-	MACRO_LENGTH
-	MACRO_CHECKSUM
 } __attribute__((packed));
 
 }

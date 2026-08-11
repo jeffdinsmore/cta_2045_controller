@@ -145,6 +145,7 @@ public:
     	unsigned short value,
     	unsigned char units
 	) = 0;
+	virtual std::future<ResponseCodes> intermediateGetAdvancedLoadUp() = 0;
 	virtual std::future<ResponseCodes> intermediateSetAdvancedLoadUp(
 		unsigned short duration,
 		unsigned short value,

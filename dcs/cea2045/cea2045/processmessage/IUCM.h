@@ -113,6 +113,7 @@
 #include "../message/CEA2045MessageGetSetpointsResponse.h"
 #include "../message/CEA2045MessageGetPresentTemperatureResponse.h"
 #include "../message/CEA2045MessageGetUTCTimeResponse.h"
+#include "../message/CEA2045MessageGetAdvancedLoadUpResponse.h"
 
 namespace cea2045 {
 
@@ -137,6 +138,9 @@ public:
 	virtual void processStartCyclingResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processTerminateCyclingResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processSetAdvancedLoadUpResponse(cea2045IntermediateResponse *message) = 0;
+	virtual void processGetAdvancedLoadUpResponse(
+		cea2045GetAdvancedLoadUpResponse *message,
+		unsigned short payloadLength) = 0;
 	virtual void processGetPresentTemperatureResponse(cea2045GetPresentTemperatureResponse *message) = 0;
 	virtual void processGetUTCTimeResponse(cea2045GetUTCTimeResponse *message) = 0;
 	virtual void processAckReceived(MessageCode messageCode) = 0;

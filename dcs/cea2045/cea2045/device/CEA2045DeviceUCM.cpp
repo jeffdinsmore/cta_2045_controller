@@ -323,6 +323,14 @@ std::future<ResponseCodes> CEA2045DeviceUCM::intermediateSetAdvancedLoadUp(
     return queueRequest(setAdvancedLoadUp);
 }
 
+//======================================================================================
+
+std::future<ResponseCodes> CEA2045DeviceUCM::intermediateGetAdvancedLoadUp()
+{
+	return queueRequest(new Intermediate(
+		MessageCode::GET_ADVANCED_LOAD_UP_REQUEST, 0x0C, 0x00));
+}
+
 std::future<ResponseCodes> CEA2045DeviceUCM::intermediateSetAdvancedLoadUp(
     unsigned short duration,
     unsigned short value,

@@ -378,11 +378,26 @@ void ProcessMessageUCM::processIntermediateMessage(ILinkLayerCommSend *linkLayer
 		}
 		case IntermediateTypeCode::ADVANCED_LOAD_UP_RESPONSE:
 		{
-    		cea2045IntermediateResponse *response = (cea2045IntermediateResponse *)message;
-
-    		m_ucm->processSetAdvancedLoadUpResponse(response);
-    		linkLayer->sendLinkLayerAck();
-    		break;
+			const unsigned short payloadLength = message->getLength();
+			if (payloadLength == 3)
+			{
+				cea2045IntermediateResponse *response =
+					(cea2045IntermediateResponse *)message;
+				m_ucm->processSetAdvancedLoadUpResponse(response);
+			}
+			else if (payloadLength >= 8)
+			{
+				cea2045GetAdvancedLoadUpResponse *response =
+					(cea2045GetAdvancedLoadUpResponse *)message;
+				m_ucm->processGetAdvancedLoadUpResponse(response, payloadLength);
+			}
+			else
+			{
+				linkLayer->sendLinkLayerNak(LinkLayerNakCode::INVALID_LENGTH);
+				break;
+			}
+			linkLayer->sendLinkLayerAck();
+			break;
 		}
 
 		default:
