@@ -22,7 +22,6 @@
 #include <iostream>
 #include <cctype>
 #include <sstream>
-#include <vector>
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
@@ -33,17 +32,9 @@ INITIALIZE_EASYLOGGINGPP
 
 #include <cea2045/util/MSTimer.h>
 
-void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
+bool perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
 void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
 const char* responseCodeName(ResponseCode code);
-
-struct PendingAdvancedLoadUpReadback
-{
-	long long dueMilliseconds;
-	string eventId;
-};
-
-vector<PendingAdvancedLoadUpReadback> pendingAdvancedLoadUpReadbacks;
 
 void performAdvancedLoadUpReadback(
 	const string& eventId,
@@ -87,6 +78,7 @@ const char* scheduledCommandName(char cmd)
 	case 'g': return "grid_emergency";
 	case 'c': return "critical_peak";
 	case 'o': return "outside_communication1";
+	case 'v': return "get_advanced_load_up";
 	default: return "unknown";
 	}
 }
@@ -102,6 +94,7 @@ string scheduledCommandOpcode1(char cmd)
 	case 'g': return "11";
 	case 'o': return "14";
 	case 'l': return "23";
+	case 'v': return "12";
 	default: return "";
 	}
 }
@@ -357,7 +350,12 @@ int main()
 }
 
 
-void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev){
+bool perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev){
+	if (tolower(cmd) == 'v')
+	{
+		performAdvancedLoadUpReadback(eventId, argument, dev);
+		return false;
+	}
 	const string commandName = scheduledCommandName(cmd);
 	string argumentText = to_string(argument);
 	if (tolower(cmd) == 'a')
@@ -441,21 +439,13 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 			"", eventId, "schedule", opcode1, opcode2,
 			"", "", "", "", intermediateCode, intermediateName);
 
-		if (tolower(cmd) == 'a'
+		const bool shouldScheduleReadback = tolower(cmd) == 'a'
 				&& result.responesCode == ResponseCode::OK
 				&& result.hasIntermediateResponseCode
-				&& result.intermediateResponseCode == 0x00)
-		{
-			const unsigned int readbackDelaySeconds = 10;
-			PendingAdvancedLoadUpReadback pending;
-			pending.dueMilliseconds = chrono::duration_cast<chrono::milliseconds>(
-				chrono::steady_clock::now().time_since_epoch()).count()
-				+ readbackDelaySeconds * 1000;
-			pending.eventId = eventId;
-			pendingAdvancedLoadUpReadbacks.push_back(pending);
-		}
+				&& result.intermediateResponseCode == 0x00;
+		return shouldScheduleReadback;
 	}
-    return;
+	return false;
 }
 
 
@@ -556,7 +546,7 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        continue;
 	    }
 
-	    if (commandText.size() != 1 || string("aselgco").find(commandText[0]) == string::npos)
+	    if (commandText.size() != 1 || string("aselgcov").find(commandText[0]) == string::npos)
 	    {
 	        LOG(ERROR) << "invalid schedule command retained: " << line;
 	        lines += line + "\n";
@@ -576,8 +566,10 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	            continue;
 	        }
 	    }
-	    else if (argumentValue > 0xFF || !valueText.empty() || !unitsText.empty()
+	    else if (tolower(cmd) != 'v'
+	             && (argumentValue > 0xFF || !valueText.empty() || !unitsText.empty()
 	             || !efficiencyText.empty())
+	    )
 	    {
 	        LOG(ERROR) << "invalid Basic DR arguments retained: " << line;
 	        lines += line + "\n";
@@ -593,7 +585,7 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		    cout<<t<<','<<cmd<<','<<argumentValue<<" (PASSED!)\n";
 		    try
 		    {
-		    perform_command(
+		    const bool shouldScheduleReadback = perform_command(
 		        cmd,
 		        static_cast<unsigned int>(argumentValue),
 		        static_cast<unsigned int>(advancedValue),
@@ -602,6 +594,15 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		        static_cast<unsigned int>(advancedEfficiency),
 		        eventId,
 		        dev);
+		    if (shouldScheduleReadback)
+		    {
+		        const unsigned int readbackDelaySeconds = 10;
+		        time_t readbackTime;
+		        time(&readbackTime);
+		        lines += to_string(readbackTime + readbackDelaySeconds)
+		            + ",v," + to_string(readbackDelaySeconds) + ","
+		            + eventId + ",,,\n";
+		    }
 		    }
 		    catch (const exception& error)
 		    {
@@ -641,36 +642,6 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        file << lines;
 	        file.close();
 	    }
-	}
-
-	// Delayed ALU readbacks share this loop so CTA serial requests remain
-	// serialized with scheduled commands and periodic queries.
-	for (vector<PendingAdvancedLoadUpReadback>::iterator readback =
-			pendingAdvancedLoadUpReadbacks.begin();
-			readback != pendingAdvancedLoadUpReadbacks.end();)
-	{
-		const long long nowMilliseconds =
-			chrono::duration_cast<chrono::milliseconds>(
-				chrono::steady_clock::now().time_since_epoch()).count();
-		if (nowMilliseconds < readback->dueMilliseconds)
-		{
-			++readback;
-			continue;
-		}
-		try
-		{
-			performAdvancedLoadUpReadback(
-				readback->eventId, 10, dev);
-		}
-		catch (const exception& error)
-		{
-			logCtaEvent(
-				"verification_exception", "outbound", "get_advanced_load_up",
-				"error", "delay_seconds=10",
-				error.what(), readback->eventId, "automatic_delayed_readback",
-				"12", "0");
-		}
-		readback = pendingAdvancedLoadUpReadbacks.erase(readback);
 	}
 	// ------------------------------ end of scheduler ----------------------
 	// Commodity polling uses a 60-second clock while operational-state polling
