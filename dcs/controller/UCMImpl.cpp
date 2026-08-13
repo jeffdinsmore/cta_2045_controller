@@ -9,6 +9,7 @@
 
 #include "UCMImpl.h"
 #include "CtaEventLog.h"
+#include "CtaRawMessageLog.h"
 #include "IntermediateResponseCode.h"
 #include <easylogging++.h>
 
@@ -688,6 +689,7 @@ void UCMImpl::processGetAdvancedLoadUpResponse(
 	const bool hasEfficiency = payloadLength >= 9;
 	const unsigned char *payload =
 		reinterpret_cast<const unsigned char *>(message) + sizeof(cea2045::cea2045MessageHeader);
+	logCtaRawMessage("inbound", "get_advanced_load_up_reply", payload, payloadLength);
 	const unsigned char efficiency = hasEfficiency ? payload[8] : 0;
 	const string efficiencyStatus = !hasEfficiency
 		? "not_reported"

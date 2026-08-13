@@ -22,6 +22,7 @@
 #include <iostream>
 #include <cctype>
 #include <sstream>
+#include <vector>
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
@@ -34,6 +35,48 @@ INITIALIZE_EASYLOGGINGPP
 
 void perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
 void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
+const char* responseCodeName(ResponseCode code);
+
+struct PendingAdvancedLoadUpReadback
+{
+	chrono::steady_clock::time_point due;
+	string eventId;
+	unsigned int delaySeconds;
+};
+
+vector<PendingAdvancedLoadUpReadback> pendingAdvancedLoadUpReadbacks;
+
+void performAdvancedLoadUpReadback(
+	const string& eventId,
+	unsigned int delaySeconds,
+	std::shared_ptr<ICEA2045DeviceUCM> dev)
+{
+	const string delayArgument = "delay_seconds=" + to_string(delaySeconds);
+	const string source = delaySeconds == 0
+		? "automatic_readback"
+		: "automatic_delayed_readback";
+	logCtaEvent(
+		"verification_sent", "outbound", "get_advanced_load_up",
+		"pending", delayArgument, "", eventId, source, "12", "0");
+	ResponseCodes readback = dev->intermediateGetAdvancedLoadUp().get();
+	string readbackResult = responseCodeName(readback.responesCode);
+	string readbackCode;
+	string readbackName;
+	if (readback.responesCode == ResponseCode::OK
+			&& readback.hasIntermediateResponseCode)
+	{
+		readbackCode = to_string(
+			static_cast<int>(readback.intermediateResponseCode));
+		readbackName = intermediateResponseCodeName(
+			readback.intermediateResponseCode);
+		if (readback.intermediateResponseCode != 0x00)
+			readbackResult = readbackName;
+	}
+	logCtaEvent(
+		"verification_completed", "outbound", "get_advanced_load_up",
+		readbackResult, delayArgument, "", eventId, source, "12", "0",
+		"", "", "", "", readbackCode, readbackName);
+}
 
 const char* scheduledCommandName(char cmd)
 {
@@ -405,27 +448,20 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 				&& result.hasIntermediateResponseCode
 				&& result.intermediateResponseCode == 0x00)
 		{
-			logCtaEvent(
-				"verification_sent", "outbound", "get_advanced_load_up",
-				"pending", "", "", eventId, "automatic_readback", "12", "0");
-			ResponseCodes readback = dev->intermediateGetAdvancedLoadUp().get();
-			string readbackResult = responseCodeName(readback.responesCode);
-			string readbackCode;
-			string readbackName;
-			if (readback.responesCode == ResponseCode::OK
-					&& readback.hasIntermediateResponseCode)
+			performAdvancedLoadUpReadback(eventId, 0, dev);
+			const unsigned int readbackDelays[] = {5, 15, 30, 60};
+			const chrono::steady_clock::time_point queuedAt =
+				chrono::steady_clock::now();
+			for (unsigned int index = 0;
+					index < sizeof(readbackDelays) / sizeof(readbackDelays[0]);
+					index++)
 			{
-				readbackCode = to_string(
-					static_cast<int>(readback.intermediateResponseCode));
-				readbackName = intermediateResponseCodeName(
-					readback.intermediateResponseCode);
-				if (readback.intermediateResponseCode != 0x00)
-					readbackResult = readbackName;
+				PendingAdvancedLoadUpReadback pending;
+				pending.due = queuedAt + chrono::seconds(readbackDelays[index]);
+				pending.eventId = eventId;
+				pending.delaySeconds = readbackDelays[index];
+				pendingAdvancedLoadUpReadbacks.push_back(pending);
 			}
-			logCtaEvent(
-				"verification_completed", "outbound", "get_advanced_load_up",
-				readbackResult, "", "", eventId, "automatic_readback", "12", "0",
-				"", "", "", "", readbackCode, readbackName);
 		}
 	}
     return;
@@ -614,6 +650,33 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        file << lines;
 	        file.close();
 	    }
+	}
+
+	// Delayed ALU readbacks share this loop so CTA serial requests remain
+	// serialized with scheduled commands and periodic queries.
+	for (vector<PendingAdvancedLoadUpReadback>::iterator readback =
+			pendingAdvancedLoadUpReadbacks.begin();
+			readback != pendingAdvancedLoadUpReadbacks.end();)
+	{
+		if (chrono::steady_clock::now() < readback->due)
+		{
+			++readback;
+			continue;
+		}
+		try
+		{
+			performAdvancedLoadUpReadback(
+				readback->eventId, readback->delaySeconds, dev);
+		}
+		catch (const exception& error)
+		{
+			logCtaEvent(
+				"verification_exception", "outbound", "get_advanced_load_up",
+				"error", "delay_seconds=" + to_string(readback->delaySeconds),
+				error.what(), readback->eventId, "automatic_delayed_readback",
+				"12", "0");
+		}
+		readback = pendingAdvancedLoadUpReadbacks.erase(readback);
 	}
 	// ------------------------------ end of scheduler ----------------------
 	// Commodity polling uses a 60-second clock while operational-state polling
