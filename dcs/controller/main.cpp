@@ -39,9 +39,8 @@ const char* responseCodeName(ResponseCode code);
 
 struct PendingAdvancedLoadUpReadback
 {
-	chrono::steady_clock::time_point due;
+	long long dueMilliseconds;
 	string eventId;
-	unsigned int delaySeconds;
 };
 
 vector<PendingAdvancedLoadUpReadback> pendingAdvancedLoadUpReadbacks;
@@ -52,12 +51,10 @@ void performAdvancedLoadUpReadback(
 	std::shared_ptr<ICEA2045DeviceUCM> dev)
 {
 	const string delayArgument = "delay_seconds=" + to_string(delaySeconds);
-	const string source = delaySeconds == 0
-		? "automatic_readback"
-		: "automatic_delayed_readback";
 	logCtaEvent(
 		"verification_sent", "outbound", "get_advanced_load_up",
-		"pending", delayArgument, "", eventId, source, "12", "0");
+		"pending", delayArgument, "", eventId, "automatic_delayed_readback",
+		"12", "0");
 	ResponseCodes readback = dev->intermediateGetAdvancedLoadUp().get();
 	string readbackResult = responseCodeName(readback.responesCode);
 	string readbackCode;
@@ -74,7 +71,8 @@ void performAdvancedLoadUpReadback(
 	}
 	logCtaEvent(
 		"verification_completed", "outbound", "get_advanced_load_up",
-		readbackResult, delayArgument, "", eventId, source, "12", "0",
+		readbackResult, delayArgument, "", eventId,
+		"automatic_delayed_readback", "12", "0",
 		"", "", "", "", readbackCode, readbackName);
 }
 
@@ -448,20 +446,13 @@ void perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 				&& result.hasIntermediateResponseCode
 				&& result.intermediateResponseCode == 0x00)
 		{
-			performAdvancedLoadUpReadback(eventId, 0, dev);
-			const unsigned int readbackDelays[] = {5, 15, 30, 60};
-			const chrono::steady_clock::time_point queuedAt =
-				chrono::steady_clock::now();
-			for (unsigned int index = 0;
-					index < sizeof(readbackDelays) / sizeof(readbackDelays[0]);
-					index++)
-			{
-				PendingAdvancedLoadUpReadback pending;
-				pending.due = queuedAt + chrono::seconds(readbackDelays[index]);
-				pending.eventId = eventId;
-				pending.delaySeconds = readbackDelays[index];
-				pendingAdvancedLoadUpReadbacks.push_back(pending);
-			}
+			const unsigned int readbackDelaySeconds = 10;
+			PendingAdvancedLoadUpReadback pending;
+			pending.dueMilliseconds = chrono::duration_cast<chrono::milliseconds>(
+				chrono::steady_clock::now().time_since_epoch()).count()
+				+ readbackDelaySeconds * 1000;
+			pending.eventId = eventId;
+			pendingAdvancedLoadUpReadbacks.push_back(pending);
 		}
 	}
     return;
@@ -658,7 +649,10 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 			pendingAdvancedLoadUpReadbacks.begin();
 			readback != pendingAdvancedLoadUpReadbacks.end();)
 	{
-		if (chrono::steady_clock::now() < readback->due)
+		const long long nowMilliseconds =
+			chrono::duration_cast<chrono::milliseconds>(
+				chrono::steady_clock::now().time_since_epoch()).count();
+		if (nowMilliseconds < readback->dueMilliseconds)
 		{
 			++readback;
 			continue;
@@ -666,13 +660,13 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 		try
 		{
 			performAdvancedLoadUpReadback(
-				readback->eventId, readback->delaySeconds, dev);
+				readback->eventId, 10, dev);
 		}
 		catch (const exception& error)
 		{
 			logCtaEvent(
 				"verification_exception", "outbound", "get_advanced_load_up",
-				"error", "delay_seconds=" + to_string(readback->delaySeconds),
+				"error", "delay_seconds=10",
 				error.what(), readback->eventId, "automatic_delayed_readback",
 				"12", "0");
 		}

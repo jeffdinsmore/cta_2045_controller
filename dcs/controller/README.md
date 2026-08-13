@@ -22,10 +22,10 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
   Load Up GET replies for byte-level auditing without adding noise to
   `cta_events.csv`. Set `CTA_RAW_MESSAGE_LOG_PATH` to place it in a per-run
   results directory.
-- After a successful Advanced Load Up SET, the controller requests an immediate
-  GET readback and repeats it after 5, 15, 30, and 60 seconds. The associated
-  verification rows in `cta_events.csv` include `delay_seconds` so each reply
-  can be correlated with its SET command.
+- Ten seconds after a successful Advanced Load Up SET, the controller requests
+  one GET readback. The associated verification rows in `cta_events.csv`
+  include `delay_seconds=10` so the reply can be correlated with its SET
+  command.
 - Commodity rows are paired with the operational-state response from the same
   periodic polling cycle. Standalone state queries, including the final
   shutdown query, remain in `cta_events.csv` and do not create partial
