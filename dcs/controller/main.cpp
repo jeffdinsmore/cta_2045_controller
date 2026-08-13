@@ -88,7 +88,7 @@ const char* scheduledCommandName(char cmd)
 	case 'l': return "load_up";
 	case 'g': return "grid_emergency";
 	case 'c': return "critical_peak";
-	case 'o': return "outside_communication";
+	case 'o': return "outside_communication1";
 	default: return "unknown";
 	}
 }
