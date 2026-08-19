@@ -305,6 +305,18 @@ int main()
 						responseCodeName(result.responesCode), "0",
 						"", "", "shutdown", "2", "0");
 				}
+				cout << "Reporting outside communication disconnected..." << endl;
+				logCtaEvent(
+					"command_sent", "outbound", "outside_communication",
+					"pending", "0", "", "", "shutdown", "14", "0");
+				{
+					ResponseCodes result = device->basicOutsideCommConnectionStatus(
+						OutsideCommuncatonStatusCode::No).get();
+					logCtaEvent(
+						"command_completed", "outbound", "outside_communication",
+						responseCodeName(result.responesCode), "0",
+						"", "", "shutdown", "14", "0");
+				}
 				cout << "Loading..."<< endl;
 				sleep(2);
 
