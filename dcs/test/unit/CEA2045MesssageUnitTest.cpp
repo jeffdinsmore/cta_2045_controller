@@ -103,13 +103,13 @@
 
 #include "../catch.hpp"
 
-#include <cea2045/message/CEA2045MessageCommodityResponse.h>
-#include <cea2045/message/CEA2045MessageDeviceInfoResponse.h>
-#include <cea2045/message/ConvertEnums.h>
-#include <cea2045/device/message/SetAdvancedLoadUp.h>
-#include <cea2045/device/message/Intermediate.h>
-#include <cea2045/message/CEA2045MessageGetAdvancedLoadUpResponse.h>
-#include <cea2045/util/Checksum.h>
+#include <cta2045/message/CEA2045MessageCommodityResponse.h>
+#include <cta2045/message/CEA2045MessageDeviceInfoResponse.h>
+#include <cta2045/message/ConvertEnums.h>
+#include <cta2045/device/message/SetAdvancedLoadUp.h>
+#include <cta2045/device/message/Intermediate.h>
+#include <cta2045/message/CEA2045MessageGetAdvancedLoadUpResponse.h>
+#include <cta2045/util/Checksum.h>
 
 using namespace cea2045;
 

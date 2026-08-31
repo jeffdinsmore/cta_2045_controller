@@ -104,7 +104,7 @@
 #ifndef TEST_TEST_UNIT_PROCESSMESSAGE_LINKLAYERSENDMOCK_H_
 #define TEST_TEST_UNIT_PROCESSMESSAGE_LINKLAYERSENDMOCK_H_
 
-#include "../../../../cea2045/cea2045/linklayer/ILinkLayerCommSend.h"
+#include <cta2045/linklayer/ILinkLayerCommSend.h>
 
 using namespace cea2045;
 

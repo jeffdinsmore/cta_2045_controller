@@ -101,8 +101,8 @@
  *      Author: nebland
  */
 
-#include <cea2045/communicationport/CEA2045SerialPort.h>
-#include <cea2045/device/CEA2045DeviceUCM.h>
+#include <cta2045/communicationport/CEA2045SerialPort.h>
+#include <cta2045/device/CEA2045DeviceUCM.h>
 #include "../../mocks/cea2045CommunicationPort/CommunicationPortSGDMock.h"
 #include "../linklayer/LinkLayerMock.h"
 #include "../linklayer/ProcessMessageMock.h"

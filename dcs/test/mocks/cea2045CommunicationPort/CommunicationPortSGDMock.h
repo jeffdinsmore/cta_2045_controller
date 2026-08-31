@@ -106,8 +106,8 @@
 
 #include <iostream>
 
-#include "../../../../cea2045/cea2045/communicationport/ICommunicationPort.h"
-#include "../../../../cea2045/cea2045/message/CEA2045Message.h"
+#include <cta2045/communicationport/ICommunicationPort.h>
+#include <cta2045/message/CEA2045Message.h>
 
 using namespace std;
 

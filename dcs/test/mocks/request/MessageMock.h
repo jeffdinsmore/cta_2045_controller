@@ -104,7 +104,7 @@
 #ifndef TEST_TEST_MOCKS_REQUEST_MESSAGEMOCK_H_
 #define TEST_TEST_MOCKS_REQUEST_MESSAGEMOCK_H_
 
-#include "../../../../cea2045/cea2045/device/message/Message.h"
+#include <cta2045/device/message/Message.h>
 
 using namespace cea2045;
 

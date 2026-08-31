@@ -103,7 +103,7 @@
 
 #include "../catch.hpp"
 
-#include <cea2045/util/CEA2045Time.h>
+#include <cta2045/util/CEA2045Time.h>
 
 using namespace cea2045;
 

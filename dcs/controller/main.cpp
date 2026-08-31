@@ -9,9 +9,9 @@
 
 #include <easylogging++.h>
 
-#include <cea2045/device/DeviceFactory.h>
+#include <cta2045/device/DeviceFactory.h>
 
-#include <cea2045/communicationport/CEA2045SerialPort.h>
+#include <cta2045/communicationport/CEA2045SerialPort.h>
 
 #include <unistd.h>
 
@@ -30,7 +30,7 @@ using namespace cea2045;
 
 INITIALIZE_EASYLOGGINGPP
 
-#include <cea2045/util/MSTimer.h>
+#include <cta2045/util/MSTimer.h>
 
 bool perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
 void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
