@@ -94,7 +94,9 @@ application.
 2) Load the dependencies as described in the Dependencies section above.
 3) Build the application per the instructions in the Build instructions section. 
    Use the Release instructions.
-4) Run `make schedule` to create a schedule, then `make run`.
+4) Run `make test` to create a schedule and launch the controller with schedule
+   processing enabled. Plain `make run` launches the interactive controller
+   without processing `schedule.csv`.
 
 The controller attempts to open `/dev/ttyUSB0`. Adjust the serial-port setting
 in `controller/main.cpp` when necessary.

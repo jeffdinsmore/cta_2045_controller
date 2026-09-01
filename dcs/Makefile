@@ -25,7 +25,7 @@ run: controller
 
 test: controller
 	bash controller/create_schedule.sh
-	cd controller && ../$(PROGRAM)
+	cd controller && ../$(PROGRAM) --schedule
 
 clean:
 	cmake -E remove_directory $(BUILD_DIR)

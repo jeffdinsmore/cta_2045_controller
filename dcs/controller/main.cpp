@@ -33,7 +33,9 @@ INITIALIZE_EASYLOGGINGPP
 #include <cta2045/util/MSTimer.h>
 
 bool perform_command(char cmd, unsigned int argument, unsigned int value, unsigned int units, bool hasEfficiency, unsigned int efficiency, const string& eventId, std::shared_ptr<ICEA2045DeviceUCM> dev);
-void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev);
+void commodity_service_loop(
+	std::shared_ptr<ICEA2045DeviceUCM> dev,
+	bool scheduleEnabled);
 const char* responseCodeName(ResponseCode code);
 
 void performAdvancedLoadUpReadback(
@@ -113,10 +115,11 @@ const char* responseCodeName(ResponseCode code)
 	return "unknown";
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 	MSTimer timer;
 	bool shutdown = false;
+	const bool scheduleEnabled = argc > 1 && string(argv[1]) == "--schedule";
 
 	CEA2045SerialPort sp("/dev/ttyUSB0");
 	UCMImpl ucm;
@@ -173,7 +176,9 @@ int main()
 		"", "", "", "", deviceInfoResponseCode, deviceInfoResponseName);
 
 	LOG(INFO) << "starting commodity service...";
-    std::thread commodity(commodity_service_loop,device);
+	LOG(INFO) << "schedule processing is "
+			  << (scheduleEnabled ? "enabled" : "disabled");
+    std::thread commodity(commodity_service_loop, device, scheduleEnabled);
     commodity.detach();
     sleep(5);
 	while (!shutdown)
@@ -479,7 +484,9 @@ bool perform_command(char cmd, unsigned int argument, unsigned int value, unsign
 }
 
 
-void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
+void commodity_service_loop(
+	std::shared_ptr<ICEA2045DeviceUCM> dev,
+	bool scheduleEnabled){
     fstream file;
     time_t now;
     string header,line,lines;
@@ -490,6 +497,8 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
     chrono::steady_clock::time_point nextOperationalStateRead = chrono::steady_clock::now();
     while (1)
     {
+	if (scheduleEnabled)
+	{
 	bool scheduleChanged = false;
 	file.clear();
 	file.open("schedule.csv", ofstream::in);
@@ -671,12 +680,12 @@ void commodity_service_loop(std::shared_ptr<ICEA2045DeviceUCM> dev){
 	        // Remove commands that were dispatched while retaining future rows.
 	        file << lines;
 	        file.close();
-	    }
+		}
+	}
 	}
 	// ------------------------------ end of scheduler ----------------------
 	// Commodity polling uses a 60-second clock while operational-state polling
-	// uses a 30-second clock. Scheduled commands are checked every second
-	// between periodic reads.
+	// uses a 30-second clock.
 	if (chrono::steady_clock::now() >= nextCommodityRead)
 	{
 	    // dev->intermediateGetDeviceInformation().get();

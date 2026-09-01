@@ -40,4 +40,5 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
   optional for compatibility with older schedules.
 - `create_schedule.sh` creates a new schedule and archives the original entries.
 
-From the `dcs` directory, use `make`, `make schedule`, or `make run`.
+From the `dcs` directory, use `make run` for interactive operation without a
+schedule, or `make test` to create and process the standalone test schedule.
