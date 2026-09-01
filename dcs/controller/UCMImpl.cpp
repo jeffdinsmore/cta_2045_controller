@@ -827,7 +827,7 @@ void UCMImpl::processOperationalStateReceived(cea2045::cea2045Basic *message)
 			m_commodityRowPending = false;
 		}
 	}
-	cout << "\nEnter a command letter at the prompt\n";
+	cout << "\nPress Enter for a list of commands\n";
 }
 
 //======================================================================================

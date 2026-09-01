@@ -196,8 +196,15 @@ int main(int argc, char* argv[])
 		cout<<"z- Quit and return operation to normal\n";
         cout<<"q- Quit\n";
         cout<<"enter choice: ";
-		char c;
-		cin >> c;
+		string commandInput;
+		if (!getline(cin, commandInput))
+		{
+			shutdown = true;
+			break;
+		}
+		if (commandInput.empty())
+			continue;
+		char c = commandInput[0];
 
 		switch (c)
 		{
@@ -293,17 +300,21 @@ int main(int argc, char* argv[])
 			case 'u':
 				{
 					cout << "Customer override? (0 = No, 1 = Yes): ";
-					int overrideChoice = -1;
-					if (!(cin >> overrideChoice) || (overrideChoice != 0 && overrideChoice != 1))
+					string overrideInput;
+					if (!getline(cin, overrideInput))
 					{
-						cout << "Invalid selection. Enter 0 for No or 1 for Yes." << endl;
-						cin.clear();
-						cin.ignore(10000, '\n');
+						shutdown = true;
 						break;
 					}
+					if (overrideInput != "0" && overrideInput != "1")
+					{
+						cout << "Invalid selection. Enter 0 for No or 1 for Yes." << endl;
+						break;
+					}
+					const bool overrideEnabled = overrideInput == "1";
 					cout << "Sending CUSTOMER OVERRIDE: "
-						 << (overrideChoice == 1 ? "Yes" : "No") << "..." << endl;
-					device->basicCustomerOverride(overrideChoice == 1).get();
+						 << (overrideEnabled ? "Yes" : "No") << "..." << endl;
+					device->basicCustomerOverride(overrideEnabled).get();
 				}
 				break;
 			
