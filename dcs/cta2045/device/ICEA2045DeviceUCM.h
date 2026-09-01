@@ -167,6 +167,7 @@ public:
 	virtual std::future<ResponseCodes> basicQueryOperationalState() = 0;
 	virtual std::future<ResponseCodes> basicShed(unsigned char eventDuration) = 0;
 	virtual std::future<ResponseCodes> basicPowerLevel(unsigned char powerLevel) = 0;
+	virtual std::future<ResponseCodes> basicCustomerOverride(bool overrideEnabled) = 0;
 };
 
 } /* namespace cea2045 */

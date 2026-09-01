@@ -185,6 +185,7 @@ int main()
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
+		cout<<"u- Customer Override\n";
 		cout<<"v- Enable advanced load up capability\n";
 		cout<<"x- Disable advanced load up capability\n";
 		cout<<"z- Quit and return operation to normal\n";
@@ -281,6 +282,23 @@ int main()
 
 				cout << "Querying operational state after SHED..." << endl;
 				device->basicQueryOperationalState().get();
+				break;
+
+			case 'u':
+				{
+					cout << "Customer override? (0 = No, 1 = Yes): ";
+					int overrideChoice = -1;
+					if (!(cin >> overrideChoice) || (overrideChoice != 0 && overrideChoice != 1))
+					{
+						cout << "Invalid selection. Enter 0 for No or 1 for Yes." << endl;
+						cin.clear();
+						cin.ignore(10000, '\n');
+						break;
+					}
+					cout << "Sending CUSTOMER OVERRIDE: "
+						 << (overrideChoice == 1 ? "Yes" : "No") << "..." << endl;
+					device->basicCustomerOverride(overrideChoice == 1).get();
+				}
 				break;
 			
 			case 'v':

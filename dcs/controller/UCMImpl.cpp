@@ -180,6 +180,8 @@ const char* messageCodeName(cea2045::MessageCode code)
 		return "query_operational_state";
 	case cea2045::MessageCode::BASIC_POWER_LEVEL:
 		return "power_level";
+	case cea2045::MessageCode::BASIC_CUSTOMER_OVERRIDE:
+		return "customer_override";
 	case cea2045::MessageCode::DEVICE_INFORMATION_REQUEST:
 		return "device_information";
 	case cea2045::MessageCode::GET_COMMODITY_REQUEST:
@@ -239,6 +241,7 @@ std::string messageCodeOpcode1(cea2045::MessageCode code)
 	case cea2045::MessageCode::BASIC_LOAD_UP_REQUEST: return "23";
 	case cea2045::MessageCode::BASIC_OUTSIDE_COMM_CONNECTION_STATUS_MESSAGE: return "14";
 	case cea2045::MessageCode::BASIC_QUERY_OPERATIONAL_STATE_REQUEST: return "18";
+	case cea2045::MessageCode::BASIC_CUSTOMER_OVERRIDE: return "17";
 	case cea2045::MessageCode::GET_COMMODITY_REQUEST: return "6";
 	default: return "";
 	}

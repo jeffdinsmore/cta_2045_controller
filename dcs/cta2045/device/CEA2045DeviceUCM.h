@@ -168,6 +168,7 @@ public:
 	std::future<ResponseCodes> basicQueryOperationalState();
 	std::future<ResponseCodes> basicShed(unsigned char eventDuration);
 	std::future<ResponseCodes> basicPowerLevel(unsigned char powerLevel);
+	std::future<ResponseCodes> basicCustomerOverride(bool overrideEnabled);
 
 	std::future<ResponseCodes> queryMaxPayload();
 

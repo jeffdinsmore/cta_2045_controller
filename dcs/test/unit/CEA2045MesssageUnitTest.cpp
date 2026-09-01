@@ -107,11 +107,31 @@
 #include <cta2045/message/CEA2045MessageDeviceInfoResponse.h>
 #include <cta2045/message/ConvertEnums.h>
 #include <cta2045/device/message/SetAdvancedLoadUp.h>
+#include <cta2045/device/message/Basic.h>
 #include <cta2045/device/message/Intermediate.h>
 #include <cta2045/message/CEA2045MessageGetAdvancedLoadUpResponse.h>
 #include <cta2045/util/Checksum.h>
 
 using namespace cea2045;
+
+TEST_CASE("BasicCustomerOverride", "CEA2045Message")
+{
+	Basic noOverride(MessageCode::BASIC_CUSTOMER_OVERRIDE, CUST_OVERRIDE, 0x00);
+	REQUIRE(noOverride.getNumBytes() == 8);
+	REQUIRE(noOverride.getBuffer()[0] == 0x08);
+	REQUIRE(noOverride.getBuffer()[1] == 0x01);
+	REQUIRE(noOverride.getBuffer()[2] == 0x00);
+	REQUIRE(noOverride.getBuffer()[3] == 0x02);
+	REQUIRE(noOverride.getBuffer()[4] == 0x11);
+	REQUIRE(noOverride.getBuffer()[5] == 0x00);
+	REQUIRE(Checksum::validate(noOverride.getBuffer(), noOverride.getNumBytes()));
+
+	Basic overrideEnabled(MessageCode::BASIC_CUSTOMER_OVERRIDE, CUST_OVERRIDE, 0x01);
+	REQUIRE(overrideEnabled.getBuffer()[4] == 0x11);
+	REQUIRE(overrideEnabled.getBuffer()[5] == 0x01);
+	REQUIRE(Checksum::validate(
+		overrideEnabled.getBuffer(), overrideEnabled.getNumBytes()));
+}
 
 TEST_CASE("AdvancedLoadUpOptionalEfficiency", "CEA2045Message")
 {

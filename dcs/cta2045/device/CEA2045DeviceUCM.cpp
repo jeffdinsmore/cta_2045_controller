@@ -283,6 +283,14 @@ std::future<ResponseCodes> CEA2045DeviceUCM::basicPowerLevel(unsigned char power
 
 //======================================================================================
 
+std::future<ResponseCodes> CEA2045DeviceUCM::basicCustomerOverride(bool overrideEnabled)
+{
+	return queueRequest(new Basic(MessageCode::BASIC_CUSTOMER_OVERRIDE,
+			CUST_OVERRIDE, overrideEnabled ? 0x01 : 0x00));
+}
+
+//======================================================================================
+
 std::future<ResponseCodes> CEA2045DeviceUCM::queryMaxPayload()
 {
 	return CEA2045Device::queryMaxPayload();
