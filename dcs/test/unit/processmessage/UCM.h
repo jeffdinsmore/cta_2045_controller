@@ -104,7 +104,7 @@
 #ifndef TEST_TEST_UNIT_PROCESSMESSAGE_UCM_H_
 #define TEST_TEST_UNIT_PROCESSMESSAGE_UCM_H_
 
-#include <cta2045/processmessage/IUCM.h>
+#include <cea2045/processmessage/IUCM.h>
 
 using namespace cea2045;
 

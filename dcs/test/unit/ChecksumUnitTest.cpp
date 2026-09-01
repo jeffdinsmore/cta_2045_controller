@@ -104,7 +104,7 @@
 // #include <gtest/gtest.h>
 #include "../catch.hpp"
 
-#include <cta2045/util/Checksum.h>
+#include <cea2045/util/Checksum.h>
 
 #include <endian.h>
 

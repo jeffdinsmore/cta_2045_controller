@@ -104,7 +104,7 @@
 #ifndef TEST_TEST_UNIT_LINKLAYER_PROCESSMESSAGEMOCK_H_
 #define TEST_TEST_UNIT_LINKLAYER_PROCESSMESSAGEMOCK_H_
 
-#include <cta2045/processmessage/IProcessMessage.h>
+#include <cea2045/processmessage/IProcessMessage.h>
 
 using namespace cea2045;
 

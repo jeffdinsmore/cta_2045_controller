@@ -101,7 +101,7 @@
  *      Author: dupes
  */
 
-#include <cta2045/util/Checksum.h>
+#include <cea2045/util/Checksum.h>
 
 #include "LinkLayerMock.h"
 

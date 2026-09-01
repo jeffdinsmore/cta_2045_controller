@@ -104,7 +104,7 @@
 #ifndef TEST_TEST_UNIT_LINKLAYER_LINKLAYERMOCK_H_
 #define TEST_TEST_UNIT_LINKLAYER_LINKLAYERMOCK_H_
 
-#include <cta2045/linklayer/ILinkLayerComm.h>
+#include "../../../../cea2045/cea2045/linklayer/ILinkLayerComm.h"
 #include "../../mocks/cea2045CommunicationPort/CommunicationPortSGDMock.h"
 
 

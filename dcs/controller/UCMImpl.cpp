@@ -13,7 +13,7 @@
 #include "IntermediateResponseCode.h"
 #include <easylogging++.h>
 
-#include <cta2045/util/MSTimer.h>
+#include <cea2045/util/MSTimer.h>
 
 #include <chrono>
 #include <cstdlib>

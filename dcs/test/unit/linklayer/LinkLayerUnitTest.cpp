@@ -104,8 +104,8 @@
 
 #include "ProcessMessageMock.h"
 
-#include <cta2045/device/CEA2045DeviceUCM.h>
-#include <cta2045/util/Checksum.h>
+#include <cea2045/device/CEA2045DeviceUCM.h>
+#include <cea2045/util/Checksum.h>
 
 #include "LinkLayerMock.h"
 #include <time.h>

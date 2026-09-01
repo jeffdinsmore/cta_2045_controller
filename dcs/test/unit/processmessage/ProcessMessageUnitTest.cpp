@@ -106,7 +106,7 @@
 #include "UCM.h"
 #include "LinkLayerSendMock.h"
 
-#include <cta2045/processmessage/ProcessMessageUCM.h>
+#include <cea2045/processmessage/ProcessMessageUCM.h>
 
 //======================================================================================
 
