@@ -196,7 +196,8 @@ int main(int argc, char* argv[])
 		cout<<"z- Quit and return operation to normal\n";
         cout<<"q- Quit\n";
         cout<<"enter choice: ";
-		char c = getchar();
+		char c;
+		cin >> c;
 
 		switch (c)
 		{
@@ -347,9 +348,6 @@ int main(int argc, char* argv[])
 				device->basicQueryOperationalState().get();
 				shutdown = true;
 				break;
-			case '\n':
-				break;
-			
 			case 'C':
 				device->intermediateGetCommodity().get();
 				break;
