@@ -1,4 +1,4 @@
-/* Read and print one CTA-2045 Commodity response without saving any data. */
+/* Read and print CTA-2045 Commodity and optional Present Temperature responses. */
 
 #include <cta2045/communicationport/CEA2045SerialPort.h>
 #include <cta2045/device/DeviceFactory.h>
@@ -8,6 +8,7 @@
 
 #include <condition_variable>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -63,6 +64,8 @@ const char* messageCodeName(MessageCode code)
 	switch (code)
 	{
 	case MessageCode::GET_COMMODITY_REQUEST: return "Get Commodity";
+	case MessageCode::GET_PRESENT_TEMPERATURE_REQUEST:
+		return "Get Present Temperature";
 	case MessageCode::BASIC_QUERY_OPERATIONAL_STATE_REQUEST:
 		return "Query Operational State";
 	case MessageCode::DEVICE_INFORMATION_REQUEST: return "Device Information";
@@ -132,7 +135,7 @@ class CommodityDiagnosticUCM : public IUCM
 public:
 	CommodityDiagnosticUCM()
 		: m_commodityReceived(false), m_commoditySuccess(false),
-		  m_operationalStateReceived(false) {}
+		  m_temperatureReceived(false), m_operationalStateReceived(false) {}
 
 	bool waitForCommodity(unsigned int timeoutSeconds)
 	{
@@ -147,6 +150,15 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
 		return m_commoditySuccess;
+	}
+
+	bool waitForPresentTemperature(unsigned int timeoutSeconds)
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		return m_condition.wait_for(
+			lock,
+			std::chrono::seconds(timeoutSeconds),
+			[this] { return m_temperatureReceived; });
 	}
 
 	bool waitForOperationalState(unsigned int timeoutSeconds)
@@ -222,7 +234,37 @@ public:
 	void processGetAdvancedLoadUpResponse(
 		cea2045GetAdvancedLoadUpResponse*, unsigned short) override {}
 	void processGetPresentTemperatureResponse(
-		cea2045GetPresentTemperatureResponse*) override {}
+		cea2045GetPresentTemperatureResponse* message) override
+	{
+		if (message->responseCode != 0x00)
+		{
+			std::cerr << "Present Temperature response rejected; intermediate "
+				<< "response code: "
+				<< static_cast<unsigned int>(message->responseCode) << '\n';
+		}
+		else
+		{
+			const unsigned short rawTemperature = message->getPresentTemperature();
+			const double temperature = static_cast<double>(rawTemperature) / 100.0;
+			std::cout << "Present temperature: " << std::fixed
+				<< std::setprecision(2) << temperature;
+			if (message->units == static_cast<unsigned char>(TemperatureUnits::F))
+				std::cout << " degrees F";
+			else if (message->units == static_cast<unsigned char>(TemperatureUnits::C))
+				std::cout << " degrees C";
+			else
+				std::cout << " (unknown units code "
+					<< static_cast<unsigned int>(message->units) << ')';
+			std::cout << " (raw " << rawTemperature << ", device type "
+				<< message->getDeviceType() << ")\n";
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(m_mutex);
+			m_temperatureReceived = true;
+		}
+		m_condition.notify_one();
+	}
 	void processGetUTCTimeResponse(cea2045GetUTCTimeResponse*) override {}
 	void processAckReceived(MessageCode messageCode) override
 	{
@@ -281,6 +323,7 @@ private:
 	std::condition_variable m_condition;
 	bool m_commodityReceived;
 	bool m_commoditySuccess;
+	bool m_temperatureReceived;
 	bool m_operationalStateReceived;
 };
 
@@ -296,7 +339,8 @@ void disableLibraryLogging()
 void printUsage(const char* program)
 {
 	std::cout << "Usage: " << program << " [serial-port]\n"
-		<< "Read and print one CTA-2045 Commodity response.\n"
+		<< "Read and print one CTA-2045 Commodity response and, when supported, "
+		<< "the Present Temperature.\n"
 		<< "Default serial port: /dev/ttyUSB0\n";
 }
 
@@ -354,6 +398,19 @@ int main(int argc, char* argv[])
 		device->shutDown();
 		port.close();
 		return EXIT_FAILURE;
+	}
+
+	std::cout << "\nRequesting Present Temperature...\n";
+	ResponseCodes temperatureResult =
+		device->intermediateGetPresentTemperature().get();
+	if (temperatureResult.responesCode != ResponseCode::OK)
+	{
+		std::cout << "Present Temperature not supported or unavailable: "
+			<< responseCodeName(temperatureResult.responesCode) << '\n';
+	}
+	else if (!ucm.waitForPresentTemperature(2))
+	{
+		std::cout << "Present Temperature request completed without a response\n";
 	}
 
 	std::cout << "\nRequesting operational state...\n";
