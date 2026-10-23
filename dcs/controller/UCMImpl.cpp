@@ -443,8 +443,6 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 	if (hasDeviceType)
 		LOG(INFO) << "  device type: " << deviceType
 				  << " - " << deviceTypeName(deviceType);
-	if (hasVendorId)
-		LOG(INFO) << "  vendor ID: " << vendorId;
 
 	logCtaEvent(
 		"intermediate_response", "inbound", "device_information",
@@ -455,13 +453,8 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 		"", "", "", "",
 		std::to_string(static_cast<int>(responseCode)), responseName);
 
-	ofstream out(deviceInfoLogPath(), ios_base::out | ios_base::trunc);
-	if (!out.is_open())
-	{
-		LOG(ERROR) << "failed to open device information CSV: "
-				   << deviceInfoLogPath();
-		return;
-	}
+	// Keep the complete diagnostic response out of the public run directory.
+	ostringstream out;
 
 	out << "timestamp_pacific,opcode1,opcode2,response_code,response_name,"
 		   "payload_length,cta2045_version_raw_hex,cta2045_version,"
@@ -548,6 +541,51 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
 	if (hasFirmwareMinor)
 		out << static_cast<unsigned int>(message->firmwareMinor);
 	out << '\n';
+
+    const char* privatePath = std::getenv("CTA_PRIVATE_DEVICE_INFO_LOG_PATH");
+    if (privatePath != NULL && privatePath[0] != '\0')
+    {
+        ofstream diagnostic(privatePath, ios_base::out | ios_base::trunc);
+        if (diagnostic.is_open())
+            diagnostic << out.str();
+        else
+            LOG(ERROR) << "failed to open private device information CSV";
+    }
+
+    ofstream publicOut(deviceInfoLogPath(), ios_base::out | ios_base::trunc);
+    if (!publicOut.is_open())
+    {
+        LOG(ERROR) << "failed to open public device information CSV";
+        return;
+    }
+    const char* equipmentId = std::getenv("CTA_EQUIPMENT_ID");
+    publicOut << "timestamp_pacific,equipment_id,opcode1,opcode2,response_code,response_name,"
+                 "payload_length,cta2045_version_raw_hex,cta2045_version,"
+                 "cta2045_b_version_valid,device_type_hex,device_type_name,capability_bitmap_hex\n";
+    publicOut << csvEscape(currentDateTime()) << ','
+              << csvEscape(equipmentId != NULL ? equipmentId : "") << ','
+              << static_cast<unsigned int>(message->opCode1) << ','
+              << static_cast<unsigned int>(message->opCode2) << ','
+              << static_cast<unsigned int>(responseCode) << ',' << responseName << ','
+              << payloadLength << ',';
+    if (hasVersion)
+        publicOut << bytesToHex(message->version, sizeof(message->version));
+    publicOut << ',';
+    if (hasVersion)
+        publicOut << csvEscape(fixedAscii(message->version, sizeof(message->version)));
+    publicOut << ',';
+    if (hasVersion)
+        publicOut << (validVersionB ? "true" : "false");
+    publicOut << ',';
+    if (hasDeviceType)
+        publicOut << deviceTypeHex.str();
+    publicOut << ',';
+    if (hasDeviceType)
+        publicOut << csvEscape(deviceTypeName(deviceType));
+    publicOut << ',';
+    if (hasCapability)
+        publicOut << bytesToHex(message->capability, sizeof(message->capability));
+    publicOut << '\n';
 }
 
 //======================================================================================

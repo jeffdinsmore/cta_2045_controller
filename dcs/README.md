@@ -144,3 +144,16 @@ or failure of the function call.
 
 ### Additional Testing Notes
 
+
+
+### Public device information
+
+`CTA_DEVICE_INFO_LOG_PATH` selects the filtered public device-information CSV.
+It retains protocol/version, device type and capability information, with a separate
+`equipment_id` supplied through `CTA_EQUIPMENT_ID` (blank if not supplied).
+Vendor ID, device revision, model and serial fields/support flags, and firmware
+fields are omitted. To retain the previous diagnostic columns locally, set
+`CTA_PRIVATE_DEVICE_INFO_LOG_PATH` to a path in a private directory that already
+exists; this file must not be published. The conformance runner supplies both
+paths and the anonymous equipment ID. Rebuild the controller to use this schema.
+Raw message logs are separate from this CSV filtering.
