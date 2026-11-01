@@ -190,6 +190,11 @@ void CEA2045Device::processResponse(cea2045MessageHeader *messageHeader, Message
 	else if (messageHeader->isIntermediateMessage())
 	{
 		m_processMessage->processIntermediateMessage(m_linkLayer, messageHeader);
+		if (messageHeader->getLength() < 3)
+		{
+			response->setResponseCode(ResponseCode::INVALID_RESPONSE);
+			return;
+		}
 		cea2045IntermediateResponse *intermediateResponse =
 				(cea2045IntermediateResponse *)messageHeader;
 		response->setResponseCode(

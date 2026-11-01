@@ -142,6 +142,8 @@ public:
 		cea2045GetAdvancedLoadUpResponse *message,
 		unsigned short payloadLength) = 0;
 	virtual void processGetPresentTemperatureResponse(cea2045GetPresentTemperatureResponse *message) = 0;
+	// code is -1 when no response-code byte is available.
+	virtual void processPresentTemperatureStatus(int code, unsigned short length, bool malformed) {}
 	virtual void processGetUTCTimeResponse(cea2045GetUTCTimeResponse *message) = 0;
 	virtual void processAckReceived(MessageCode messageCode) = 0;
 	virtual void processNakReceived(LinkLayerNakCode nak, MessageCode messageCode) = 0;

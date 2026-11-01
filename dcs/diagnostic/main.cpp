@@ -244,8 +244,8 @@ public:
 		}
 		else
 		{
-			const unsigned short rawTemperature = message->getPresentTemperature();
-			const double temperature = static_cast<double>(rawTemperature) / 100.0;
+			const int rawTemperature = message->getPresentTemperature();
+			const double temperature = message->getPresentTemperatureDegrees();
 			std::cout << "Present temperature: " << std::fixed
 				<< std::setprecision(2) << temperature;
 			if (message->units == static_cast<unsigned char>(TemperatureUnits::F))
@@ -265,6 +265,16 @@ public:
 		}
 		m_condition.notify_one();
 	}
+    void processPresentTemperatureStatus(int code, unsigned short length, bool malformed) override
+    {
+        std::cerr << "Present temperature " << (malformed ? "malformed/unrecognized" : "error")
+            << "; response code: " << code << "; payload length: " << length << '\n';
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_temperatureReceived = true;
+        }
+        m_condition.notify_one();
+    }
 	void processGetUTCTimeResponse(cea2045GetUTCTimeResponse*) override {}
 	void processAckReceived(MessageCode messageCode) override
 	{

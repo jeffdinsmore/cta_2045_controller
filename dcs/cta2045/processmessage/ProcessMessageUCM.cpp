@@ -215,6 +215,12 @@ void ProcessMessageUCM::processIntermediateMessage(ILinkLayerCommSend *linkLayer
 		return;
 	}
 
+	if (message->getLength() < 2)
+	{
+		linkLayer->sendLinkLayerNak(LinkLayerNakCode::REQUEST_NOT_SUPPORTED);
+		return;
+	}
+
 	cea2045Intermediate *intermediate = (cea2045Intermediate *)message;
 
 	unsigned short intermediateType = *((unsigned short *)(&(intermediate->opCode1)));
@@ -346,10 +352,28 @@ void ProcessMessageUCM::processIntermediateMessage(ILinkLayerCommSend *linkLayer
 
 		case IntermediateTypeCode::GET_PRESENT_TEMPERATURE_RESPONSE:
 		{
-			cea2045GetPresentTemperatureResponse *getPresentTemperature = (cea2045GetPresentTemperatureResponse *)message;
+			const unsigned short length = message->getLength();
+			// Read the status only after confirming that byte 3 exists.
+			const int code = length >= 3
+				? reinterpret_cast<const unsigned char*>(message)[6] : -1;
+			if (code > 0)
+			{
+				// Error replies can omit temperature data. Never interpret it.
+				m_ucm->processPresentTemperatureStatus(code, length, false);
+			}
+			else if (code == 0 && length == 8)
+			{
+				cea2045GetPresentTemperatureResponse* response =
+					reinterpret_cast<cea2045GetPresentTemperatureResponse*>(message);
+				if (response->units <= 1)
+					m_ucm->processGetPresentTemperatureResponse(response);
+				else
+					m_ucm->processPresentTemperatureStatus(code, length, true);
+			}
+			else
+				m_ucm->processPresentTemperatureStatus(code, length, true);
 
-			m_ucm->processGetPresentTemperatureResponse(getPresentTemperature);
-
+			// Receipt ACK does not imply the payload was understood.
 			linkLayer->sendLinkLayerAck();
 
 			break;

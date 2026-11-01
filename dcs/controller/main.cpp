@@ -115,6 +115,29 @@ const char* responseCodeName(ResponseCode code)
 	return "unknown";
 }
 
+string queryCompletion(const ResponseCodes& result)
+{
+    if (result.responesCode == ResponseCode::OK && result.hasIntermediateResponseCode)
+        return intermediateResponseCodeName(result.intermediateResponseCode);
+    return responseCodeName(result.responesCode);
+}
+
+ResponseCodes collectTemperatureQuery(shared_ptr<ICEA2045DeviceUCM> dev, bool setpoints)
+{
+    const string command = setpoints ? "get_setpoints" : "get_present_temperature";
+    const string opcode2 = setpoints ? "3" : "4";
+    const string source = setpoints ? "startup" : "periodic";
+    logCtaEvent("query_sent", "outbound", command, "pending", "", "", "", source, "3", opcode2);
+    const ResponseCodes result = setpoints ? dev->intermediateGetSetPoint().get()
+        : dev->intermediateGetPresentTemperature().get();
+    const bool hasCode = result.responesCode == ResponseCode::OK && result.hasIntermediateResponseCode;
+    logCtaEvent("query_completed", "outbound", command, queryCompletion(result),
+        "", "", "", source, "3", opcode2, "", "", "", "",
+        hasCode ? to_string(static_cast<int>(result.intermediateResponseCode)) : "",
+        hasCode ? intermediateResponseCodeName(result.intermediateResponseCode) : "");
+    return result;
+}
+
 int main(int argc, char* argv[])
 {
 	MSTimer timer;
@@ -175,6 +198,18 @@ int main(int argc, char* argv[])
 		deviceInfoCompletion, "", "", "", "startup", "1", "1",
 		"", "", "", "", deviceInfoResponseCode, deviceInfoResponseName);
 
+    try
+    {
+        const ResponseCodes setpoints = collectTemperatureQuery(device, true);
+        ucm.finishStartupSetpoints(queryCompletion(setpoints));
+    }
+    catch (const exception& error)
+    {
+        logCtaEvent("query_exception", "outbound", "get_setpoints", "error",
+            "", error.what(), "", "startup", "3", "3");
+        ucm.finishStartupSetpoints("exception");
+    }
+
 	LOG(INFO) << "starting commodity service...";
 	LOG(INFO) << "schedule processing is "
 			  << (scheduleEnabled ? "enabled" : "disabled");
@@ -190,6 +225,9 @@ int main(int argc, char* argv[])
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
+		cout<<"T- Get present temperature\n";
+		cout<<"S- Get temperature setpoints\n";
+		cout<<"P- Set temperature setpoints\n";
 		cout<<"u- Customer Override\n";
 		cout<<"v- Enable advanced load up capability\n";
 		cout<<"x- Disable advanced load up capability\n";
@@ -368,7 +406,34 @@ int main(int argc, char* argv[])
 				break;
 			
 			case 'S':
-				device->intermediateGetSetPoint().get();
+				cout << "Temperature setpoint GET: "
+					 << responseCodeName(device->intermediateGetSetPoint().get().responesCode)
+					 << endl;
+				break;
+
+			case 'P':
+				{
+					cout << "Enter decimal device type (2=electric WH, 3=heat pump WH), "
+						 << "units (0=F, 1=C), setpoint1 and setpoint2 "
+						 << "as unsigned 16-bit protocol values: ";
+					string input;
+					if (!getline(cin, input)) { shutdown = true; break; }
+					istringstream fields(input);
+					long deviceType, units, first, second;
+					string extra;
+					if (!(fields >> deviceType >> units >> first >> second)
+							|| (fields >> extra) || deviceType < 0 || deviceType > 65535
+							|| units < 0 || units > 1 || first < 0 || first > 65535
+							|| second < 0 || second > 65535)
+					{
+						cout << "Invalid input. No command sent." << endl;
+						break;
+					}
+					cout << "Temperature setpoint SET: "
+						 << responseCodeName(device->intermediateSetSetpoints(
+							 deviceType, static_cast<TemperatureUnits>(units), first, second)
+							 .get().responesCode) << endl;
+				}
 				break;
 
 			case 'T':
@@ -501,6 +566,7 @@ void commodity_service_loop(
     string header,line,lines;
     const chrono::seconds schedulerInterval(1);
     const chrono::seconds commodityInterval(60);
+    bool presentTemperatureNotImplemented = false;
     const chrono::seconds operationalStateInterval(30);
     chrono::steady_clock::time_point nextCommodityRead = chrono::steady_clock::now();
     chrono::steady_clock::time_point nextOperationalStateRead = chrono::steady_clock::now();
@@ -729,6 +795,21 @@ void commodity_service_loop(
 	            "query_exception", "outbound", "get_commodity", "error",
 	            "", error.what(), "", "periodic", "6", "0");
 	    }
+        if (!presentTemperatureNotImplemented)
+        {
+            try
+            {
+                const ResponseCodes temperature = collectTemperatureQuery(dev, false);
+                presentTemperatureNotImplemented = temperature.responesCode == ResponseCode::OK
+                    && temperature.hasIntermediateResponseCode
+                    && temperature.intermediateResponseCode == 0x01;
+            }
+            catch (const exception& error)
+            {
+                logCtaEvent("query_exception", "outbound", "get_present_temperature", "error",
+                    "", error.what(), "", "periodic", "3", "4");
+            }
+        }
 	    nextCommodityRead += commodityInterval;
 	    if (nextCommodityRead <= chrono::steady_clock::now())
 	        nextCommodityRead = chrono::steady_clock::now() + commodityInterval;

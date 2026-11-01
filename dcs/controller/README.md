@@ -42,3 +42,40 @@ CTA-2045 device over the serial port configured in `main.cpp` (currently
 
 From the `dcs` directory, use `make run` for interactive operation without a
 schedule, or `make test` to create and process the standalone test schedule.
+
+Temperature setpoints are supported by the bundled library as intermediate
+GET/SET messages (Opcode1 `0x03`, Opcode2 `0x03`). In the interactive menu,
+uppercase `S` requests setpoints and uppercase `P` sends a SET. The SET prompt
+requires four decimal integers: device type, units (`0` = Fahrenheit, `1` =
+Celsius), and two unsigned 16-bit protocol setpoint values. Device type `2`
+means electric water heater; `3` means heat pump water heater. Values are
+passed through as raw protocol values; temperature scaling and special values
+must be checked against the applicable device/protocol documentation before
+use. Both setpoints are required by the current library SET API.
+
+GET responses with either one or two setpoints and SET response codes are
+reported through the controller logger and `cta_events.csv`. A successful
+transport result alone does not establish that the device accepted the SET;
+check the intermediate response code. Use `S` to request a readback. These
+commands are interactive only; the schedule format is unchanged.
+
+Uppercase `T` requests present temperature. Successful replies are decoded only
+with the known eight-byte payload and units 0 or 1. Error responses are logged
+without reading temperature fields; malformed or unknown layouts are logged as
+`malformed_or_unrecognized`. `command_not_implemented` is an explicit device
+response; malformed replies and timeouts do not prove lack of support or identify
+a CEA/CTA revision. Device-information version data remains the revision evidence.
+Present temperature is a signed 16-bit value in hundredths of a degree. Events
+include the signed raw value, decoded degrees with two decimal places, and F/C
+units. For water heaters this is average tank temperature.
+
+Startup requests setpoints immediately after device information. The public
+`cta_device_information.csv` row includes `setpoint_status`,
+`setpoint_device_type`, `setpoint_units`, `setpoint1_raw`, and `setpoint2_raw`.
+Setpoints remain raw pending confirmation of their encoding. Unsupported or
+failed requests leave value columns blank; later interactive requests do not
+change the startup snapshot. Present temperature is requested in each 60-second
+commodity polling cycle, independently of commodity success. Dispatch, completion,
+and decoded response events go to `cta_events.csv`. An explicit
+`command_not_implemented` disables further automatic temperature requests for that
+session. Other errors and timeouts remain retryable.

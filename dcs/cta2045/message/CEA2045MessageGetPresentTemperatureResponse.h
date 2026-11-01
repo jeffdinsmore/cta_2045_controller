@@ -136,9 +136,15 @@ struct cea2045GetPresentTemperatureResponse
 		return be16toh(deviceType);
 	}
 
-	unsigned short getPresentTemperature()
+	int getPresentTemperature()
 	{
-		return be16toh(presentTemperature);
+		const unsigned int raw = be16toh(presentTemperature);
+		return raw >= 0x8000 ? static_cast<int>(raw) - 65536 : static_cast<int>(raw);
+	}
+
+	double getPresentTemperatureDegrees()
+	{
+		return getPresentTemperature() / 100.0;
 	}
 
 	MACRO_LENGTH

@@ -27,11 +27,19 @@ class UCMImpl : public cea2045::IUCM
 private:
 	cea2045::MaxPayloadLengthCode m_sgdMaxPayload;
 	mutex m_commodityLogMutex;
+    mutex m_startupInfoMutex;
+    string m_publicDeviceInfo;
+    string m_startupSetpoints = ",not_requested,,,,";
+    bool m_collectStartupSetpoints = true;
+    void savePublicDeviceInfo();
+    void captureStartupSetpoints(unsigned char code, unsigned short deviceType,
+        unsigned char units, unsigned short first, const string& second);
 	bool m_commodityRowPending = false;
 
 
 public:
 	UCMImpl();
+    void finishStartupSetpoints(const string& status);
 	virtual ~UCMImpl();
 
 	virtual bool isMessageTypeSupported(cea2045::MessageTypeCode messageType);
@@ -43,16 +51,17 @@ public:
 	virtual void processSetEnergyPriceResponse(cea2045::cea2045IntermediateResponse *message) {};
 	virtual void processSetTemperatureOffsetResponse(cea2045::cea2045IntermediateResponse *message) {};
 	virtual void processGetTemperatureOffsetResponse(cea2045::cea2045GetTemperateOffsetResponse *message) {};
-	virtual void processSetSetpointsResponse(cea2045::cea2045IntermediateResponse *message) {};
-	virtual void processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse1 *message) {};
-	virtual void processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse2 *message) {};
+	virtual void processSetSetpointsResponse(cea2045::cea2045IntermediateResponse *message);
+	virtual void processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse1 *message);
+	virtual void processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse2 *message);
 	virtual void processStartCyclingResponse(cea2045::cea2045IntermediateResponse *message) {};
 	virtual void processTerminateCyclingResponse(cea2045::cea2045IntermediateResponse *message) {};
 	virtual void processSetAdvancedLoadUpResponse(cea2045::cea2045IntermediateResponse *message);
 	virtual void processGetAdvancedLoadUpResponse(
 		cea2045::cea2045GetAdvancedLoadUpResponse *message,
 		unsigned short payloadLength);
-	virtual void processGetPresentTemperatureResponse(cea2045::cea2045GetPresentTemperatureResponse *message) {};
+	virtual void processGetPresentTemperatureResponse(cea2045::cea2045GetPresentTemperatureResponse *message);
+	virtual void processPresentTemperatureStatus(int code, unsigned short length, bool malformed);
 	virtual void processGetUTCTimeResponse(cea2045::cea2045GetUTCTimeResponse *message) {};;
 	virtual void processAckReceived(cea2045::MessageCode messageCode);
 	virtual void processNakReceived(cea2045::LinkLayerNakCode nak, cea2045::MessageCode messageCode);

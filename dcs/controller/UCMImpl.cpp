@@ -552,12 +552,8 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
             LOG(ERROR) << "failed to open private device information CSV";
     }
 
-    ofstream publicOut(deviceInfoLogPath(), ios_base::out | ios_base::trunc);
-    if (!publicOut.is_open())
-    {
-        LOG(ERROR) << "failed to open public device information CSV";
-        return;
-    }
+    lock_guard<mutex> guard(m_startupInfoMutex);
+    ostringstream publicOut;
     const char* equipmentId = std::getenv("CTA_EQUIPMENT_ID");
     publicOut << "timestamp_pacific,equipment_id,opcode1,opcode2,response_code,response_name,"
                  "payload_length,cta2045_version_raw_hex,cta2045_version,"
@@ -585,7 +581,8 @@ void UCMImpl::processDeviceInfoResponse(cea2045::cea2045DeviceInfoResponse* mess
     publicOut << ',';
     if (hasCapability)
         publicOut << bytesToHex(message->capability, sizeof(message->capability));
-    publicOut << '\n';
+    m_publicDeviceInfo = publicOut.str();
+    savePublicDeviceInfo();
 }
 
 //======================================================================================
@@ -940,4 +937,116 @@ void UCMImpl::processIncompleteMessage(const unsigned char *buffer, unsigned int
 		"",
 		"",
 		"link_layer");
+}
+
+namespace {
+void recordSetpointsResponse(unsigned char code, unsigned char opcode1,
+        unsigned char opcode2, const string& command, const string& details)
+{
+    const char* name = intermediateResponseCodeName(code);
+    LOG(INFO) << command << ": " << name << " " << details;
+    logCtaEvent("intermediate_response", "inbound", command,
+        code == 0 ? "success" : "error", "", details, "", "device_response",
+        to_string(static_cast<int>(opcode1)), to_string(static_cast<int>(opcode2)),
+        "", "", "", "", to_string(static_cast<int>(code)), name);
+}
+
+template <typename Message>
+string setpointDetails(Message* message)
+{
+    if (message->responseCode != 0) return "";
+    return "device_type=" + to_string(message->getDeviceType())
+        + ";units=" + to_string(static_cast<int>(message->units))
+        + ";setpoint1_raw=" + to_string(message->getSetpoint1());
+}
+}
+
+void UCMImpl::processSetSetpointsResponse(cea2045::cea2045IntermediateResponse* message)
+{
+    recordSetpointsResponse(message->responseCode, message->opCode1,
+        message->opCode2, "set_setpoints", "");
+}
+
+void UCMImpl::processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse1* message)
+{
+    captureStartupSetpoints(message->responseCode, message->getDeviceType(),
+        message->units, message->getSetpoint1(), "");
+    recordSetpointsResponse(message->responseCode, message->opCode1,
+        message->opCode2, "get_setpoints", setpointDetails(message));
+}
+
+void UCMImpl::processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse2* message)
+{
+    captureStartupSetpoints(message->responseCode, message->getDeviceType(),
+        message->units, message->getSetpoint1(), to_string(message->getSetpoint2()));
+    string details = setpointDetails(message);
+    if (message->responseCode == 0)
+        details += ";setpoint2_raw=" + to_string(message->getSetpoint2());
+    recordSetpointsResponse(message->responseCode, message->opCode1,
+        message->opCode2, "get_setpoints", details);
+}
+
+void UCMImpl::processPresentTemperatureStatus(int code, unsigned short length, bool malformed)
+{
+    const string status = malformed ? "malformed_or_unrecognized"
+        : intermediateResponseCodeName(static_cast<unsigned char>(code));
+    const string details = "payload_length=" + to_string(length)
+        + ";response_code=" + to_string(code);
+    LOG(INFO) << "get_present_temperature: " << status << " " << details;
+    logCtaEvent("intermediate_response", "inbound", "get_present_temperature",
+        status, "", details, "", "device_response", "3", "132");
+}
+
+void UCMImpl::processGetPresentTemperatureResponse(
+        cea2045::cea2045GetPresentTemperatureResponse* message)
+{
+    ostringstream temperature;
+    temperature << fixed << setprecision(2) << message->getPresentTemperatureDegrees();
+    const string details = "device_type=" + to_string(message->getDeviceType())
+        + ";units=" + to_string(static_cast<int>(message->units))
+        + ";present_temperature_raw=" + to_string(message->getPresentTemperature())
+        + ";present_temperature=" + temperature.str()
+        + ";temperature_unit=" + (message->units == 0 ? "F" : "C")
+        + ";temperature_source=average_tank";
+    LOG(INFO) << "get_present_temperature: success " << details;
+    logCtaEvent("intermediate_response", "inbound", "get_present_temperature",
+        "success", "", details, "", "device_response", "3", "132");
+}
+
+void UCMImpl::savePublicDeviceInfo()
+{
+    if (m_publicDeviceInfo.empty()) return;
+    const size_t split = m_publicDeviceInfo.find('\n');
+    ofstream out(deviceInfoLogPath(), ios_base::out | ios_base::trunc);
+    if (!out) { LOG(ERROR) << "failed to save device information"; return; }
+    out << m_publicDeviceInfo.substr(0, split)
+        << ",setpoint_status,setpoint_device_type,setpoint_units,setpoint1_raw,setpoint2_raw\n"
+        << m_publicDeviceInfo.substr(split + 1) << m_startupSetpoints << '\n';
+}
+
+void UCMImpl::captureStartupSetpoints(unsigned char code, unsigned short deviceType,
+        unsigned char units, unsigned short first, const string& second)
+{
+    lock_guard<mutex> guard(m_startupInfoMutex);
+    if (!m_collectStartupSetpoints || code != 0 || units > 1) return;
+    m_startupSetpoints = ",success," + to_string(deviceType) + ","
+        + to_string(static_cast<int>(units)) + "," + to_string(first) + "," + second;
+}
+
+void UCMImpl::finishStartupSetpoints(const string& status)
+{
+    lock_guard<mutex> guard(m_startupInfoMutex);
+    if (m_startupSetpoints == ",not_requested,,,,")
+        m_startupSetpoints = "," + csvEscape((status == "ok" || status == "success") ? "malformed_or_unrecognized" : status) + ",,,,";
+    m_collectStartupSetpoints = false;
+    if (m_publicDeviceInfo.empty())
+    {
+        const char* equipmentId = std::getenv("CTA_EQUIPMENT_ID");
+        m_publicDeviceInfo = "timestamp_pacific,equipment_id,opcode1,opcode2,response_code,response_name,"
+            "payload_length,cta2045_version_raw_hex,cta2045_version,cta2045_b_version_valid,"
+            "device_type_hex,device_type_name,capability_bitmap_hex\n"
+            + csvEscape(currentDateTime()) + "," + csvEscape(equipmentId ? equipmentId : "")
+            + ",,,,no_device_information,,,,,,,";
+    }
+    savePublicDeviceInfo();
 }
