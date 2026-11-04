@@ -45,7 +45,7 @@ schedule, or `make test` to create and process the standalone test schedule.
 
 Temperature setpoints are supported by the bundled library as intermediate
 GET/SET messages (Opcode1 `0x03`, Opcode2 `0x03`). In the interactive menu,
-uppercase `S` requests setpoints and uppercase `P` sends a SET. The SET prompt
+`j` requests setpoints and `w` sends a SET. The SET prompt
 requires four decimal integers: device type, units (`0` = Fahrenheit, `1` =
 Celsius), and two unsigned 16-bit protocol setpoint values. Device type `2`
 means electric water heater; `3` means heat pump water heater. Values are
@@ -56,10 +56,10 @@ use. Both setpoints are required by the current library SET API.
 GET responses with either one or two setpoints and SET response codes are
 reported through the controller logger and `cta_events.csv`. A successful
 transport result alone does not establish that the device accepted the SET;
-check the intermediate response code. Use `S` to request a readback. These
+check the intermediate response code. Use `j` to request a readback. These
 commands are interactive only; the schedule format is unchanged.
 
-Uppercase `T` requests present temperature. Successful replies are decoded only
+`t` requests present temperature. Successful replies are decoded only
 with the known eight-byte payload and units 0 or 1. Error responses are logged
 without reading temperature fields; malformed or unknown layouts are logged as
 `malformed_or_unrecognized`. `command_not_implemented` is an explicit device

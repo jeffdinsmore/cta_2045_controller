@@ -225,9 +225,9 @@ int main(int argc, char* argv[])
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
-		cout<<"T- Get present temperature\n";
-		cout<<"S- Get temperature setpoints\n";
-		cout<<"P- Set temperature setpoints\n";
+		cout<<"t- Get present temperature\n";
+		cout<<"j- Get temperature setpoints\n";
+		cout<<"w- Set temperature setpoints\n";
 		cout<<"u- Customer Override\n";
 		cout<<"v- Enable advanced load up capability\n";
 		cout<<"x- Disable advanced load up capability\n";
@@ -405,13 +405,13 @@ int main(int argc, char* argv[])
 				device->intermediateGetTemperatureOffset().get();
 				break;
 			
-			case 'S':
+			case 'j':
 				cout << "Temperature setpoint GET: "
 					 << responseCodeName(device->intermediateGetSetPoint().get().responesCode)
 					 << endl;
 				break;
 
-			case 'P':
+			case 'w':
 				{
 					cout << "Enter decimal device type (2=electric WH, 3=heat pump WH), "
 						 << "units (0=F, 1=C), setpoint1 and setpoint2 "
@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
 				}
 				break;
 
-			case 'T':
+			case 't':
 				device->intermediateGetPresentTemperature().get();
 				break;
 			
