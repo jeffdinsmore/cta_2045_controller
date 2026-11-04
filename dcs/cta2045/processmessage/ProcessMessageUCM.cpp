@@ -322,6 +322,8 @@ void ProcessMessageUCM::processIntermediateMessage(ILinkLayerCommSend *linkLayer
 
 		case IntermediateTypeCode::GET_SET_SETPOINT_RESPONSE:
 		{
+			m_ucm->processRawSetpointsReply(
+				reinterpret_cast<const unsigned char*>(message) + 4, message->getLength());
 			if (message->getLength() + 6 == sizeof(cea2045IntermediateResponse))
 			{
 				cea2045IntermediateResponse *intermediateResponse = (cea2045IntermediateResponse *)message;

@@ -21,7 +21,7 @@ schedule:
 	bash controller/create_schedule.sh
 
 run: controller
-	cd controller && ../$(PROGRAM)
+	cd controller && bash run_read_check.sh ../$(PROGRAM)
 
 test: controller
 	bash controller/create_schedule.sh

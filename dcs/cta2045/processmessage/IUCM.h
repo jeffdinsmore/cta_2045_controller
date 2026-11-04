@@ -135,6 +135,7 @@ public:
 	virtual void processGetSetpointsResponse(cea2045GetSetpointsResponse2 *message) = 0;
 	virtual void processGetSetpointsResponse(cea2045GetSetpointsResponse1 *message) = 0;
 	virtual void processSetSetpointsResponse(cea2045IntermediateResponse *message) = 0;
+	virtual void processRawSetpointsReply(const unsigned char* payload, unsigned short length) {}
 	virtual void processStartCyclingResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processTerminateCyclingResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processSetAdvancedLoadUpResponse(cea2045IntermediateResponse *message) = 0;

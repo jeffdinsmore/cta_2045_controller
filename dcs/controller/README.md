@@ -88,3 +88,16 @@ length remains diagnostic text in `details`. New test logs use this format.
 Existing CSVs are never rewritten or converted. If the configured event log has
 an older header, the writer reports the mismatch and leaves that file untouched;
 start a new test log to collect events in the updated format.
+
+`make run` creates a fresh `controller/logs/read_check_<timestamp>_<suffix>/`
+directory for each interactive run, containing events, raw messages, device
+information, commodity data, and console output. It does not enable scheduling.
+Existing logs remain untouched. Raw `get_set_setpoints_reply` records contain
+application payload bytes beginning with the two opcodes, excluding framing and
+checksum; the shared GET/SET reply opcode does not identify which request caused
+it. Short and unrecognized setpoint replies are captured before decoding.
+
+For a five-minute read check, note the heater display setpoint, run `make run`,
+enter `j` and `t`, repeat after two minutes, then exit with `q`. Do not select
+`w` or DR commands during this check. Save the printed log directory with the
+heater identity and displayed setpoint for comparison.

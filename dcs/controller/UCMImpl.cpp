@@ -1050,3 +1050,9 @@ void UCMImpl::finishStartupSetpoints(const string& status)
     }
     savePublicDeviceInfo();
 }
+
+void UCMImpl::processRawSetpointsReply(const unsigned char* payload, unsigned short length)
+{
+    // Capture before interpreting length or fields, including short/error replies.
+    logCtaRawMessage("inbound", "get_set_setpoints_reply", payload, length);
+}
