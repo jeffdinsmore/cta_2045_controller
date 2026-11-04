@@ -79,3 +79,12 @@ commodity polling cycle, independently of commodity success. Dispatch, completio
 and decoded response events go to `cta_events.csv`. An explicit
 `command_not_implemented` disables further automatic temperature requests for that
 session. Other errors and timeouts remain retryable.
+
+`cta_events.csv` has dedicated `present_temperature` (numeric degrees) and
+`temperature_unit` (`F` or `C`) columns. They are populated only on valid
+present-temperature response rows. Error and missing-data rows leave both blank;
+response codes and names use the existing intermediate-response columns. Payload
+length remains diagnostic text in `details`. New test logs use this format.
+Existing CSVs are never rewritten or converted. If the configured event log has
+an older header, the writer reports the mismatch and leaves that file untouched;
+start a new test log to collect events in the updated format.

@@ -990,11 +990,12 @@ void UCMImpl::processPresentTemperatureStatus(int code, unsigned short length, b
 {
     const string status = malformed ? "malformed_or_unrecognized"
         : intermediateResponseCodeName(static_cast<unsigned char>(code));
-    const string details = "payload_length=" + to_string(length)
-        + ";response_code=" + to_string(code);
+    const string details = "payload_length=" + to_string(length);
     LOG(INFO) << "get_present_temperature: " << status << " " << details;
     logCtaEvent("intermediate_response", "inbound", "get_present_temperature",
-        status, "", details, "", "device_response", "3", "132");
+        status, "", details, "", "device_response", "3", "132", "", "", "", "",
+        code >= 0 ? to_string(code) : "",
+        code >= 0 ? intermediateResponseCodeName(static_cast<unsigned char>(code)) : "");
 }
 
 void UCMImpl::processGetPresentTemperatureResponse(
@@ -1005,12 +1006,11 @@ void UCMImpl::processGetPresentTemperatureResponse(
     const string details = "device_type=" + to_string(message->getDeviceType())
         + ";units=" + to_string(static_cast<int>(message->units))
         + ";present_temperature_raw=" + to_string(message->getPresentTemperature())
-        + ";present_temperature=" + temperature.str()
-        + ";temperature_unit=" + (message->units == 0 ? "F" : "C")
         + ";temperature_source=average_tank";
     LOG(INFO) << "get_present_temperature: success " << details;
     logCtaEvent("intermediate_response", "inbound", "get_present_temperature",
-        "success", "", details, "", "device_response", "3", "132");
+        "success", "", details, "", "device_response", "3", "132", "", "", "", "",
+        "0", "success", temperature.str(), message->units == 0 ? "F" : "C");
 }
 
 void UCMImpl::savePublicDeviceInfo()

@@ -86,13 +86,29 @@ int main() {
     std::getline(missingRows, header); std::getline(missingRows, row);
     assert(std::count(row.begin(), row.end(), ',') == 17);
     setenv("CTA_EVENT_LOG_PATH", "temperature_events.csv", 1);
+    {
+        std::ofstream legacy("temperature_events.csv");
+        legacy << "timestamp_pacific,event_id,event,direction,command,result,argument,source,"
+            "opcode1,opcode2,nak_code,nak_reason,operational_state,operational_state_name,"
+            "intermediate_response_code,intermediate_response_name,details\n"
+            "old,,event,inbound,test,success,,,,,,,,,,,\"legacy, details\nsecond line\"\n";
+    }
     cea2045::cea2045GetPresentTemperatureResponse temperature = {};
     temperature.units = 1;
     temperature.setDeviceType(3);
     temperature.setPresentTemperature(static_cast<unsigned short>(-500));
+    const std::string legacy = readFile("temperature_events.csv");
     controller.processGetPresentTemperatureResponse(&temperature);
+    assert(readFile("temperature_events.csv") == legacy);
+    // A new test file receives the new schema; historical logs stay untouched.
+    { std::ofstream fresh("temperature_events.csv", std::ios::trunc); }
+    controller.processGetPresentTemperatureResponse(&temperature);
+    controller.processPresentTemperatureStatus(6, 3, false);
+    controller.processPresentTemperatureStatus(-1, 2, true);
     const std::string events = readFile("temperature_events.csv");
-    assert(events.find("present_temperature=-5.00") != std::string::npos);
-    assert(events.find("temperature_unit=C") != std::string::npos);
+    assert(events.find("details,present_temperature,temperature_unit") != std::string::npos);
+    assert(events.find(",-5.00,C\n") != std::string::npos);
+    assert(events.find(",6,other_error,payload_length=3,,\n") != std::string::npos);
+    assert(events.find(",,,payload_length=2,,\n") != std::string::npos);
 
 }

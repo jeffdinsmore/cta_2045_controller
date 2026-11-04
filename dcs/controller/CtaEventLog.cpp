@@ -1,6 +1,7 @@
 #include "CtaEventLog.h"
 
 #include <chrono>
+#include <iostream>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -82,7 +83,9 @@ void logCtaEvent(
     const std::string& operationalState,
     const std::string& operationalStateName,
     const std::string& intermediateResponseCode,
-    const std::string& intermediateResponseName)
+    const std::string& intermediateResponseName,
+    const std::string& presentTemperature,
+    const std::string& temperatureUnit)
 {
     std::lock_guard<std::mutex> lock(eventLogMutex);
     mkdir(LOG_DIRECTORY, 0755);
@@ -92,6 +95,23 @@ void logCtaEvent(
     const bool needsHeader = !existing.is_open() || existing.tellg() == 0;
     existing.close();
 
+    // Never rewrite old test files or append rows under an incompatible header.
+    if (!needsHeader)
+    {
+        std::ifstream input(path);
+        std::string header;
+        std::getline(input, header);
+        if (!header.empty() && header.back() == '\r') header.pop_back();
+        const std::string suffix = ",details,present_temperature,temperature_unit";
+        if (header.size() < suffix.size()
+                || header.compare(header.size() - suffix.size(), suffix.size(), suffix) != 0)
+        {
+            std::cerr << "Event log has an older or incompatible header; use a new test log: "
+                << path << '\n';
+            return;
+        }
+    }
+
     std::ofstream output(path, std::ios_base::out | std::ios_base::app);
     if (!output.is_open())
         return;
@@ -99,7 +119,7 @@ void logCtaEvent(
         output << "timestamp_pacific,event_id,event,direction,command,result,"
                   "argument,source,opcode1,opcode2,nak_code,nak_reason,"
                   "operational_state,operational_state_name,"
-                  "intermediate_response_code,intermediate_response_name,details\n";
+                  "intermediate_response_code,intermediate_response_name,details,present_temperature,temperature_unit\n";
 
     output << csvEscape(currentPacificTimestamp()) << ','
            << csvEscape(eventId) << ','
@@ -117,6 +137,8 @@ void logCtaEvent(
            << csvEscape(operationalStateName) << ','
            << csvEscape(intermediateResponseCode) << ','
            << csvEscape(intermediateResponseName) << ','
-           << csvEscape(details) << '\n';
+           << csvEscape(details) << ','
+           << csvEscape(presentTemperature) << ','
+           << csvEscape(temperatureUnit) << '\n';
     output.flush();
 }
