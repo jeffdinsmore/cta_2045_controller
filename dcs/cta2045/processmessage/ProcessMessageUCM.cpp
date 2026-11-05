@@ -295,30 +295,18 @@ void ProcessMessageUCM::processIntermediateMessage(ILinkLayerCommSend *linkLayer
 			break;
 		}
 
-		case IntermediateTypeCode::GET_SET_TEMPERATURE_OFFSET_RESPONSE:
-		{
-			if (message->getLength() + 6 == sizeof(cea2045IntermediateResponse))
-			{
-				cea2045IntermediateResponse *intermediateResponse = (cea2045IntermediateResponse *)message;
-
-				m_ucm->processSetTemperatureOffsetResponse(intermediateResponse);
-
-			}
-			else if (message->getLength() + 6 == sizeof(cea2045GetTemperateOffsetResponse))
-			{
-				cea2045GetTemperateOffsetResponse *getTemperateOffsetResponse = (cea2045GetTemperateOffsetResponse *)message;
-
-				m_ucm->processGetTemperatureOffsetResponse(getTemperateOffsetResponse);
-			}
-			else
-			{
-
-			}
-
-			linkLayer->sendLinkLayerAck();
-
-			break;
-		}
+        case IntermediateTypeCode::GET_SET_TEMPERATURE_OFFSET_RESPONSE:
+        {
+            const unsigned short length = message->getLength();
+            const unsigned char* payload = reinterpret_cast<const unsigned char*>(message) + 4;
+            m_ucm->processTemperatureOffsetPayload(payload, length);
+            if (length == 3)
+                m_ucm->processSetTemperatureOffsetResponse(reinterpret_cast<cea2045IntermediateResponse*>(message));
+            else if ((length == 5 || length == 6) && payload[2] == 0 && payload[4] <= 1)
+                m_ucm->processGetTemperatureOffsetResponse(reinterpret_cast<cea2045GetTemperateOffsetResponse*>(message));
+            linkLayer->sendLinkLayerAck();
+            break;
+        }
 
 		case IntermediateTypeCode::GET_SET_SETPOINT_RESPONSE:
 		{

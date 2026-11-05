@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
+#include "cta2045/device/message/Intermediate.h"
+#include <cstring>
 INITIALIZE_EASYLOGGINGPP
 struct Receiver : UCMImpl {
     int parsed = 0, statuses = 0, code = -1;
@@ -80,5 +82,39 @@ int main() {
     assert(saved.str().find("get_set_setpoints_reply,8,03 83 00 00 03 00 00 8F") != std::string::npos);
     assert(saved.str().find("get_set_setpoints_reply,3,03 83 06") != std::string::npos);
     assert(saved.str().find("get_set_setpoints_reply,5,03 83 00 00 03") != std::string::npos);
+
+    cea2045::Intermediate currentRequest(cea2045::MessageCode::GET_TEMPERATURE_OFFSET, 3, 2);
+    assert(currentRequest.getNumBytes() == 8 && currentRequest.getBuffer()[3] == 2);
+    cea2045::Intermediate drRequest(cea2045::MessageCode::GET_TEMPERATURE_OFFSET, 3, 2, 10);
+    assert(drRequest.getNumBytes() == 9);
+    const unsigned char expected[] = {8, 2, 0, 3, 3, 2, 10};
+    assert(std::memcmp(drRequest.getBuffer(), expected, 7) == 0);
+    const unsigned short checksum = cea2045::Checksum::calculate(drRequest.getBuffer(), 7);
+    assert(std::memcmp(drRequest.getBuffer() + 7, &checksum, 2) == 0);
+    setenv("CTA_EVENT_LOG_PATH", "offset_events.csv", 1);
+    { std::ofstream fresh("offset_events.csv", std::ios::trunc); }
+    const std::vector<std::vector<unsigned char>> offsets = {
+        {3, 0x82, 0, 4, 0}, {3, 0x82, 0, 6, 1, 10},
+        {3, 0x82, 1}, {3, 0x82, 6}, {3, 0x82},
+        {3, 0x82, 0, 4}, {3, 0x82, 0, 4, 2},
+        {3, 0x82, 0, 0, 0}, {3, 0x82, 0, 255, 1},
+        {3, 0x82, 0}, {3, 0x82, 0, 1, 0, 1, 2}
+    };
+    for (const auto& payload : offsets) {
+        std::vector<unsigned char> frame(payload.size() + 6, 0);
+        for (size_t i = 0; i < payload.size(); ++i) frame[i + 4] = payload[i];
+        auto* header = reinterpret_cast<cea2045::cea2045MessageHeader*>(frame.data());
+        header->length = htobe16(payload.size());
+        parser.processIntermediateMessage(&link, header);
+    }
+    std::ifstream offsetFile("offset_events.csv");
+    std::ostringstream events; events << offsetFile.rdbuf();
+    assert(events.str().find("temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code") != std::string::npos);
+    assert(events.str().find(",4,F,\n") != std::string::npos);
+    assert(events.str().find(",6,C,10\n") != std::string::npos);
+    assert(events.str().find(",1,command_not_implemented,payload_length=3,,,,,\n") != std::string::npos);
+    assert(events.str().find("malformed_or_unrecognized") != std::string::npos);
+    assert(events.str().find(",0,F,\n") != std::string::npos);
+    assert(events.str().find(",255,C,\n") != std::string::npos);
 
 }

@@ -72,7 +72,9 @@ units. For water heaters this is average tank temperature.
 Startup requests setpoints immediately after device information. The public
 `cta_device_information.csv` row includes `setpoint_status`,
 `setpoint_device_type`, `setpoint_units`, `setpoint1_raw`, and `setpoint2_raw`.
-Setpoints remain raw pending confirmation of their encoding. Unsupported or
+Setpoints retain device-reported numeric values without scaling or offset
+corrections; see [setpoint observations](setpoint_observations.md) for the
+verified WH-3 display relationship and WH-4 scale discrepancy. Unsupported or
 failed requests leave value columns blank; later interactive requests do not
 change the startup snapshot. Present temperature is requested in each 60-second
 commodity polling cycle, independently of commodity success. Dispatch, completion,
@@ -101,3 +103,28 @@ For a five-minute read check, note the heater display setpoint, run `make run`,
 enter `j` and `t`, repeat after two minutes, then exit with `q`. Do not select
 `w` or DR commands during this check. Save the printed log directory with the
 heater identity and displayed setpoint for comparison.
+
+The November 4 WH-3 check showed reported top-element setpoints of 143 F at a
+125 F display setting, 148 F at 130 F, and 143 F after restoring 125 F. Logging
+preserves those reported values without subtracting the observed 18 F
+difference. Evidence and interpretation limits are recorded in
+[setpoint observations](setpoint_observations.md).
+
+`f` requests Temperature Offset (the old hidden uppercase `O` shortcut is
+replaced). Leave the prompt blank for the current offset, or enter a decimal
+Basic DR opcode (0-255), such as `1` for Shed or `10` for Critical Peak. The
+request is read-only. Capability bitmap bit 3 advertises support, but manual
+queries are allowed even when it is clear so device behavior can be checked.
+The value is unsigned 8-bit whole degrees, with units 0 = F and 1 = C.
+
+New event logs have numeric `temperature_offset`, `temperature_offset_unit`
+(`F`/`C`), and optional `temperature_offset_basic_dr_code` columns. Error,
+short status-only, and malformed replies leave these blank and retain response
+codes/names in the existing intermediate-response columns. Reply lengths of 5
+and 6 bytes are accepted only with success status and recognized units. Raw
+payloads use `get_set_temperature_offset_reply` in `cta_raw_messages.csv`.
+GET and SET share a reply opcode, so a three-byte success reply is logged as
+`status_only`, not as a zero offset. Existing CSVs are never rewritten; use a
+new test log. Offset polling is manual only. This protocol offset is separate
+from the observed WH-3 display-to-top-element difference; no correction is
+applied to setpoint values.

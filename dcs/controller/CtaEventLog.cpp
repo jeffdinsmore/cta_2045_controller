@@ -85,7 +85,10 @@ void logCtaEvent(
     const std::string& intermediateResponseCode,
     const std::string& intermediateResponseName,
     const std::string& presentTemperature,
-    const std::string& temperatureUnit)
+    const std::string& temperatureUnit,
+    const std::string& temperatureOffset,
+    const std::string& temperatureOffsetUnit,
+    const std::string& temperatureOffsetBasicDrCode)
 {
     std::lock_guard<std::mutex> lock(eventLogMutex);
     mkdir(LOG_DIRECTORY, 0755);
@@ -102,7 +105,7 @@ void logCtaEvent(
         std::string header;
         std::getline(input, header);
         if (!header.empty() && header.back() == '\r') header.pop_back();
-        const std::string suffix = ",details,present_temperature,temperature_unit";
+        const std::string suffix = ",details,present_temperature,temperature_unit,temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code";
         if (header.size() < suffix.size()
                 || header.compare(header.size() - suffix.size(), suffix.size(), suffix) != 0)
         {
@@ -119,7 +122,7 @@ void logCtaEvent(
         output << "timestamp_pacific,event_id,event,direction,command,result,"
                   "argument,source,opcode1,opcode2,nak_code,nak_reason,"
                   "operational_state,operational_state_name,"
-                  "intermediate_response_code,intermediate_response_name,details,present_temperature,temperature_unit\n";
+                  "intermediate_response_code,intermediate_response_name,details,present_temperature,temperature_unit,temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code\n";
 
     output << csvEscape(currentPacificTimestamp()) << ','
            << csvEscape(eventId) << ','
@@ -139,6 +142,9 @@ void logCtaEvent(
            << csvEscape(intermediateResponseName) << ','
            << csvEscape(details) << ','
            << csvEscape(presentTemperature) << ','
-           << csvEscape(temperatureUnit) << '\n';
+           << csvEscape(temperatureUnit) << ','
+           << csvEscape(temperatureOffset) << ','
+           << csvEscape(temperatureOffsetUnit) << ','
+           << csvEscape(temperatureOffsetBasicDrCode) << '\n';
     output.flush();
 }

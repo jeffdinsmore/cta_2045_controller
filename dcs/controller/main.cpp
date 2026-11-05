@@ -225,6 +225,7 @@ int main(int argc, char* argv[])
         cout<<"l- Loadup\n";
         cout<<"o- Outside Communication\n";
         cout<<"s- Shed\n";
+		cout<<"f- Get temperature offset\n";
 		cout<<"t- Get present temperature\n";
 		cout<<"j- Get temperature setpoints\n";
 		cout<<"w- Set temperature setpoints\n";
@@ -401,9 +402,44 @@ int main(int argc, char* argv[])
 				device->intermediateGetCommodity().get();
 				break;
 
-			case 'O':
-				device->intermediateGetTemperatureOffset().get();
-				break;
+            case 'f':
+            {
+                cout << "Basic DR opcode in decimal (blank=current offset; 1=Shed, 10=Critical Peak): ";
+                string input;
+                if (!getline(cin, input)) { shutdown = true; break; }
+                istringstream fields(input);
+                fields >> ws;
+                const bool hasCode = !fields.eof();
+                long code = 0;
+                string extra;
+                if (hasCode && (!(fields >> code) || (fields >> extra) || code < 0 || code > 255))
+                {
+                    cout << "Invalid Basic DR code. Enter one decimal byte or leave blank." << endl;
+                    break;
+                }
+                const string argument = hasCode ? to_string(code) : "";
+                logCtaEvent("query_sent", "outbound", "get_temperature_offset", "pending",
+                    argument, "", "", "interactive", "3", "2");
+                try
+                {
+                    const ResponseCodes result = hasCode
+                        ? device->intermediateGetTemperatureOffset(static_cast<unsigned char>(code)).get()
+                        : device->intermediateGetTemperatureOffset().get();
+                    const bool hasStatus = result.responesCode == ResponseCode::OK && result.hasIntermediateResponseCode;
+                    logCtaEvent("query_completed", "outbound", "get_temperature_offset", queryCompletion(result),
+                        argument, "", "", "interactive", "3", "2", "", "", "", "",
+                        hasStatus ? to_string(static_cast<int>(result.intermediateResponseCode)) : "",
+                        hasStatus ? intermediateResponseCodeName(result.intermediateResponseCode) : "");
+                    cout << "Temperature offset GET: " << queryCompletion(result) << endl;
+                }
+                catch (const exception& error)
+                {
+                    logCtaEvent("query_exception", "outbound", "get_temperature_offset", "error",
+                        argument, error.what(), "", "interactive", "3", "2");
+                    cout << "Temperature offset GET failed: " << error.what() << endl;
+                }
+                break;
+            }
 			
 			case 'j':
 				cout << "Temperature setpoint GET: "

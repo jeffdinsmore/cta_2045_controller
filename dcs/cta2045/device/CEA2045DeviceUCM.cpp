@@ -146,6 +146,12 @@ std::future<ResponseCodes> CEA2045DeviceUCM::intermediateGetTemperatureOffset()
 
 //======================================================================================
 
+std::future<ResponseCodes> CEA2045DeviceUCM::intermediateGetTemperatureOffset(unsigned char basicDrCode)
+{
+    return queueRequest(new Intermediate(MessageCode::GET_TEMPERATURE_OFFSET,
+        GET_SET, TEMP_OFFSET, basicDrCode));
+}
+
 std::future<ResponseCodes> CEA2045DeviceUCM::intermediateGetSetPoint()
 {
 	return queueRequest(new Intermediate(MessageCode::GET_SETPOINTS_REQUEST,

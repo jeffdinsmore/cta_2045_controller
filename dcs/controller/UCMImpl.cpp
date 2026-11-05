@@ -1056,3 +1056,24 @@ void UCMImpl::processRawSetpointsReply(const unsigned char* payload, unsigned sh
     // Capture before interpreting length or fields, including short/error replies.
     logCtaRawMessage("inbound", "get_set_setpoints_reply", payload, length);
 }
+
+void UCMImpl::processTemperatureOffsetPayload(const unsigned char* payload, unsigned short length)
+{
+    logCtaRawMessage("inbound", "get_set_temperature_offset_reply", payload, length);
+    const int code = length >= 3 ? payload[2] : -1;
+    const bool valid = code == 0 && (length == 5 || length == 6) && payload[4] <= 1;
+    const string status = valid ? "success"
+        : code > 0 ? intermediateResponseCodeName(static_cast<unsigned char>(code))
+        : length == 3 && code == 0 ? "status_only" : "malformed_or_unrecognized";
+    const string offset = valid ? to_string(static_cast<int>(payload[3])) : "";
+    const string units = valid ? (payload[4] == 0 ? "F" : "C") : "";
+    const string basicDrCode = valid && length == 6 ? to_string(static_cast<int>(payload[5])) : "";
+    LOG(INFO) << "get/set_temperature_offset: " << status
+        << (valid ? " offset=" + offset + " " + units : "")
+        << (basicDrCode.empty() ? "" : " basic_dr_code=" + basicDrCode);
+    logCtaEvent("intermediate_response", "inbound", "temperature_offset", status,
+        "", "payload_length=" + to_string(length), "", "device_response", "3", "130",
+        "", "", "", "", code >= 0 ? to_string(code) : "",
+        code >= 0 ? intermediateResponseCodeName(static_cast<unsigned char>(code)) : "",
+        "", "", offset, units, basicDrCode);
+}

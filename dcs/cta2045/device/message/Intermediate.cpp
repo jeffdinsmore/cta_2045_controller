@@ -102,6 +102,7 @@
  */
 
 #include "../message/Intermediate.h"
+#include <cstring>
 
 namespace cea2045
 {
@@ -120,6 +121,17 @@ Intermediate::Intermediate(MessageCode messageCode, unsigned char opCode1, unsig
 
 //======================================================================================
 
+Intermediate::Intermediate(MessageCode messageCode, unsigned char opCode1,
+        unsigned char opCode2, unsigned char argument) : Intermediate(messageCode, opCode1, opCode2)
+{
+    m_hasArgument = true;
+    std::memcpy(m_extended, &m_msg, 6);
+    m_extended[2] = 0; m_extended[3] = 3;
+    m_extended[6] = argument;
+    const unsigned short checksum = Checksum::calculate(m_extended, 7);
+    std::memcpy(m_extended + 7, &checksum, 2);
+}
+
 Intermediate::~Intermediate()
 {
 }
@@ -128,14 +140,14 @@ Intermediate::~Intermediate()
 
 int Intermediate::getNumBytes()
 {
-	return sizeof(m_msg);
+	return m_hasArgument ? sizeof(m_extended) : sizeof(m_msg);
 }
 
 //======================================================================================
 
 unsigned char *Intermediate::getBuffer()
 {
-	return (unsigned char *)&m_msg;
+	return m_hasArgument ? m_extended : (unsigned char *)&m_msg;
 }
 
 } /* namespace cea2045 */

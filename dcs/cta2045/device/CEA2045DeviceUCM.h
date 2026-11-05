@@ -130,6 +130,7 @@ public:
 	std::future<ResponseCodes> intermediateGetDeviceInformation();
 	std::future<ResponseCodes> intermediateGetCommodity();
 	std::future<ResponseCodes> intermediateGetTemperatureOffset();
+	std::future<ResponseCodes> intermediateGetTemperatureOffset(unsigned char basicDrCode);
 	std::future<ResponseCodes> intermediateGetSetPoint();
 	std::future<ResponseCodes> intermediateGetPresentTemperature();
 

@@ -107,8 +107,8 @@ int main() {
     controller.processPresentTemperatureStatus(-1, 2, true);
     const std::string events = readFile("temperature_events.csv");
     assert(events.find("details,present_temperature,temperature_unit") != std::string::npos);
-    assert(events.find(",-5.00,C\n") != std::string::npos);
-    assert(events.find(",6,other_error,payload_length=3,,\n") != std::string::npos);
-    assert(events.find(",,,payload_length=2,,\n") != std::string::npos);
+    assert(events.find(",-5.00,C,,,\n") != std::string::npos);
+    assert(events.find(",6,other_error,payload_length=3,,,,,\n") != std::string::npos);
+    assert(events.find(",,,payload_length=2,,,,,\n") != std::string::npos);
 
 }

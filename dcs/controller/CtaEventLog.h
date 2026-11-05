@@ -21,6 +21,9 @@ void logCtaEvent(
     const std::string& intermediateResponseCode = "",
     const std::string& intermediateResponseName = "",
     const std::string& presentTemperature = "",
-    const std::string& temperatureUnit = "");
+    const std::string& temperatureUnit = "",
+    const std::string& temperatureOffset = "",
+    const std::string& temperatureOffsetUnit = "",
+    const std::string& temperatureOffsetBasicDrCode = "");
 
 #endif

@@ -132,6 +132,7 @@ public:
 	virtual void processSetEnergyPriceResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processSetTemperatureOffsetResponse(cea2045IntermediateResponse *message) = 0;
 	virtual void processGetTemperatureOffsetResponse(cea2045GetTemperateOffsetResponse *message) = 0;
+    virtual void processTemperatureOffsetPayload(const unsigned char* payload, unsigned short length) {}
 	virtual void processGetSetpointsResponse(cea2045GetSetpointsResponse2 *message) = 0;
 	virtual void processGetSetpointsResponse(cea2045GetSetpointsResponse1 *message) = 0;
 	virtual void processSetSetpointsResponse(cea2045IntermediateResponse *message) = 0;

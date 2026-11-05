@@ -114,9 +114,12 @@ class Intermediate : public Message
 {
 private:
 	cea2045Intermediate m_msg;
+    unsigned char m_extended[9] = {};
+    bool m_hasArgument = false;
 
 public:
 	Intermediate(MessageCode messageCode, unsigned char opCode1, unsigned char opCode2);
+	Intermediate(MessageCode messageCode, unsigned char opCode1, unsigned char opCode2, unsigned char argument);
 	virtual ~Intermediate();
 
 	virtual int getNumBytes();

@@ -128,6 +128,7 @@ public:
 	virtual std::future<ResponseCodes> intermediateGetDeviceInformation() = 0;
 	virtual std::future<ResponseCodes> intermediateGetCommodity() = 0;
 	virtual std::future<ResponseCodes> intermediateGetTemperatureOffset() = 0;
+	virtual std::future<ResponseCodes> intermediateGetTemperatureOffset(unsigned char basicDrCode) = 0;
 	virtual std::future<ResponseCodes> intermediateGetSetPoint() = 0;
 	virtual std::future<ResponseCodes> intermediateGetPresentTemperature() = 0;
 
