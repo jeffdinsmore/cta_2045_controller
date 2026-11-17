@@ -109,12 +109,12 @@ int main() {
     }
     std::ifstream offsetFile("offset_events.csv");
     std::ostringstream events; events << offsetFile.rdbuf();
-    assert(events.str().find("temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code") != std::string::npos);
-    assert(events.str().find(",4,F,\n") != std::string::npos);
-    assert(events.str().find(",6,C,10\n") != std::string::npos);
-    assert(events.str().find(",1,command_not_implemented,payload_length=3,,,,,\n") != std::string::npos);
+    assert(events.str().find("cta_temperature_offset,cta_temperature_offset_unit,cta_temperature_offset_basic_dr_opcode") != std::string::npos);
+    assert(events.str().find(",4,F,,,,,,,,\n") != std::string::npos);
+    assert(events.str().find(",6,C,10,,,,,,,\n") != std::string::npos);
+    assert(events.str().find(",1,command_not_implemented,payload_length=3,,,,,,,,,,,,\n") != std::string::npos);
     assert(events.str().find("malformed_or_unrecognized") != std::string::npos);
-    assert(events.str().find(",0,F,\n") != std::string::npos);
-    assert(events.str().find(",255,C,\n") != std::string::npos);
+    assert(events.str().find(",0,F,,,,,,,,\n") != std::string::npos);
+    assert(events.str().find(",255,C,,,,,,,,\n") != std::string::npos);
 
 }

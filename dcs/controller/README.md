@@ -66,8 +66,8 @@ without reading temperature fields; malformed or unknown layouts are logged as
 response; malformed replies and timeouts do not prove lack of support or identify
 a CEA/CTA revision. Device-information version data remains the revision evidence.
 Present temperature is a signed 16-bit value in hundredths of a degree. Events
-include the signed raw value, decoded degrees with two decimal places, and F/C
-units. For water heaters this is average tank temperature.
+include the signed raw value in `present_temperature_raw`, decoded degrees
+in `present_temperature`, and F/C units in `present_temperature_unit`. For water heaters this is average tank temperature.
 
 Startup requests setpoints immediately after device information. The public
 `cta_device_information.csv` row includes `setpoint_status`,
@@ -76,14 +76,15 @@ Setpoints retain device-reported numeric values without scaling or offset
 corrections; see [setpoint observations](setpoint_observations.md) for the
 verified WH-3 display relationship and WH-4 scale discrepancy. Unsupported or
 failed requests leave value columns blank; later interactive requests do not
-change the startup snapshot. Present temperature is requested in each 60-second
-commodity polling cycle, independently of commodity success. Dispatch, completion,
+change the startup snapshot. Both present temperature and setpoints are requested
+in each 60-second commodity polling cycle, independently of commodity success.
+Each query has independent error handling and unsupported-command tracking. Dispatch, completion,
 and decoded response events go to `cta_events.csv`. An explicit
-`command_not_implemented` disables further automatic temperature requests for that
-session. Other errors and timeouts remain retryable.
+`command_not_implemented` disables further automatic requests for that particular
+query for the session. Other errors and timeouts remain retryable.
 
 `cta_events.csv` has dedicated `present_temperature` (numeric degrees) and
-`temperature_unit` (`F` or `C`) columns. They are populated only on valid
+`present_temperature_unit` (`F` or `C`) columns. They are populated only on valid
 present-temperature response rows. Error and missing-data rows leave both blank;
 response codes and names use the existing intermediate-response columns. Payload
 length remains diagnostic text in `details`. New test logs use this format.
@@ -117,8 +118,8 @@ request is read-only. Capability bitmap bit 3 advertises support, but manual
 queries are allowed even when it is clear so device behavior can be checked.
 The value is unsigned 8-bit whole degrees, with units 0 = F and 1 = C.
 
-New event logs have numeric `temperature_offset`, `temperature_offset_unit`
-(`F`/`C`), and optional `temperature_offset_basic_dr_code` columns. Error,
+New event logs have numeric `cta_temperature_offset`, `cta_temperature_offset_unit`
+(`F`/`C`), and optional `cta_temperature_offset_basic_dr_opcode` columns. Error,
 short status-only, and malformed replies leave these blank and retain response
 codes/names in the existing intermediate-response columns. Reply lengths of 5
 and 6 bytes are accepted only with success status and recognized units. Raw
@@ -128,3 +129,34 @@ GET and SET share a reply opcode, so a three-byte success reply is logged as
 new test log. Offset polling is manual only. This protocol offset is separate
 from the observed WH-3 display-to-top-element difference; no correction is
 applied to setpoint values.
+
+
+Temperature and setpoint event columns (new runs only):
+
+| Column | Meaning |
+| --- | --- |
+| `present_temperature_raw` | Signed device-reported integer, before dividing by 100 |
+| `present_temperature` | Present temperature decoded as raw / 100 |
+| `present_temperature_unit` | F or C for the decoded present temperature |
+| `present_temperature_units_raw` | Present-temperature unit byte: 0 = F, 1 = C |
+| `setpoint_device_type` | Device type from the setpoint response |
+| `setpoint1_raw`, `setpoint2_raw` | Unscaled device-reported setpoints; second is blank when absent |
+| `setpoint_unit` | F or C from the setpoint unit byte; not an assertion of scale |
+| `setpoint_units_raw` | Setpoint unit byte: 0 = F, 1 = C |
+| `cta_temperature_offset` | Separate CTA Temperature Offset response, unsigned whole degrees |
+| `cta_temperature_offset_unit` | F or C for that protocol offset |
+| `cta_temperature_offset_basic_dr_opcode` | Optional Basic DR command opcode associated with that offset |
+
+The renamed columns replace `temperature_unit`, `temperature_offset`,
+`temperature_offset_unit`, and `temperature_offset_basic_dr_code` in new logs.
+Historical CSVs are not rewritten. Temperature and setpoint raw values are now
+stored in their own columns, not embedded in `details`. Error responses leave
+measurement columns blank. The observed WH-3 display difference (+18 F in its
+reported setpoint) and WH-4 setpoint scaling (C / 100) are not applied to raw
+logging; the separate CTA Temperature Offset fields do not represent those
+station-specific corrections.
+
+Hardware-independent build and logging regressions can be run on Linux with
+`python3 test/run_temperature_regressions.py` from `dcs/`. This compiles the
+controller without starting it and runs both regression executables in temporary
+folders.

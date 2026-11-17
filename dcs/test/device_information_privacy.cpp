@@ -106,9 +106,39 @@ int main() {
     controller.processPresentTemperatureStatus(6, 3, false);
     controller.processPresentTemperatureStatus(-1, 2, true);
     const std::string events = readFile("temperature_events.csv");
-    assert(events.find("details,present_temperature,temperature_unit") != std::string::npos);
-    assert(events.find(",-5.00,C,,,\n") != std::string::npos);
-    assert(events.find(",6,other_error,payload_length=3,,,,,\n") != std::string::npos);
-    assert(events.find(",,,payload_length=2,,,,,\n") != std::string::npos);
+    assert(events.find("details,present_temperature,present_temperature_unit") != std::string::npos);
+    assert(events.find(",-5.00,C,,,,-500,1,,,,,\n") != std::string::npos);
+    assert(events.find(",6,other_error,payload_length=3,,,,,,,,,,,,\n") != std::string::npos);
+    assert(events.find(",,,payload_length=2,,,,,,,,,,,,\n") != std::string::npos);
+
+    assert(events.find("present_temperature_raw,present_temperature_units_raw,setpoint_device_type,setpoint_unit,setpoint_units_raw,setpoint1_raw,setpoint2_raw") != std::string::npos);
+    assert(events.find("present_temperature_raw=") == std::string::npos);
+    { std::ofstream fresh("temperature_events.csv", std::ios::trunc); }
+    cea2045::cea2045GetSetpointsResponse1 first = {};
+    first.units = 0;
+    first.setDeviceType(3);
+    first.setSetpoint1(143);
+    controller.processGetSetpointsResponse(&first);
+    first.setSetpoint1(118);
+    controller.processGetSetpointsResponse(&first);
+    first.units = 1;
+    first.setSetpoint1(5167);
+    controller.processGetSetpointsResponse(&first);
+    setpoints.units = 0;
+    setpoints.setSetpoint1(12500);
+    setpoints.setSetpoint2(13000);
+    controller.processGetSetpointsResponse(&setpoints);
+    first.responseCode = 6;
+    controller.processGetSetpointsResponse(&first);
+    const std::string rawEvents = readFile("temperature_events.csv");
+    assert(rawEvents.find(",,,3,F,0,143,\n") != std::string::npos);
+    assert(rawEvents.find(",,,3,F,0,118,\n") != std::string::npos);
+    assert(rawEvents.find(",,,3,C,1,5167,\n") != std::string::npos);
+    assert(rawEvents.find(",,,3,F,0,12500,13000\n") != std::string::npos);
+    assert(rawEvents.find("setpoint1_raw=") == std::string::npos);
+    std::istringstream eventRows(rawEvents);
+    std::getline(eventRows, header);
+    while (std::getline(eventRows, row))
+        assert(std::count(row.begin(), row.end(), ',') == 28);
 
 }

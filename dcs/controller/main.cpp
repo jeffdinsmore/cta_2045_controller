@@ -122,11 +122,11 @@ string queryCompletion(const ResponseCodes& result)
     return responseCodeName(result.responesCode);
 }
 
-ResponseCodes collectTemperatureQuery(shared_ptr<ICEA2045DeviceUCM> dev, bool setpoints)
+ResponseCodes collectTemperatureQuery(shared_ptr<ICEA2045DeviceUCM> dev, bool setpoints,
+        const string& source = "periodic")
 {
     const string command = setpoints ? "get_setpoints" : "get_present_temperature";
     const string opcode2 = setpoints ? "3" : "4";
-    const string source = setpoints ? "startup" : "periodic";
     logCtaEvent("query_sent", "outbound", command, "pending", "", "", "", source, "3", opcode2);
     const ResponseCodes result = setpoints ? dev->intermediateGetSetPoint().get()
         : dev->intermediateGetPresentTemperature().get();
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
 
     try
     {
-        const ResponseCodes setpoints = collectTemperatureQuery(device, true);
+        const ResponseCodes setpoints = collectTemperatureQuery(device, true, "startup");
         ucm.finishStartupSetpoints(queryCompletion(setpoints));
     }
     catch (const exception& error)
@@ -603,6 +603,7 @@ void commodity_service_loop(
     const chrono::seconds schedulerInterval(1);
     const chrono::seconds commodityInterval(60);
     bool presentTemperatureNotImplemented = false;
+    bool setpointsNotImplemented = false;
     const chrono::seconds operationalStateInterval(30);
     chrono::steady_clock::time_point nextCommodityRead = chrono::steady_clock::now();
     chrono::steady_clock::time_point nextOperationalStateRead = chrono::steady_clock::now();
@@ -831,6 +832,21 @@ void commodity_service_loop(
 	            "query_exception", "outbound", "get_commodity", "error",
 	            "", error.what(), "", "periodic", "6", "0");
 	    }
+        if (!setpointsNotImplemented)
+        {
+            try
+            {
+                const ResponseCodes setpoints = collectTemperatureQuery(dev, true);
+                setpointsNotImplemented = setpoints.responesCode == ResponseCode::OK
+                    && setpoints.hasIntermediateResponseCode
+                    && setpoints.intermediateResponseCode == 0x01;
+            }
+            catch (const exception& error)
+            {
+                logCtaEvent("query_exception", "outbound", "get_setpoints", "error",
+                    "", error.what(), "", "periodic", "3", "3");
+            }
+        }
         if (!presentTemperatureNotImplemented)
         {
             try

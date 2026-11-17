@@ -3,6 +3,17 @@
 
 #include <string>
 
+struct TemperatureRawFields
+{
+    std::string presentTemperatureRaw;
+    std::string presentTemperatureUnitsRaw;
+    std::string setpointDeviceType;
+    std::string setpointUnit;
+    std::string setpointUnitsRaw;
+    std::string setpoint1Raw;
+    std::string setpoint2Raw;
+};
+
 void logCtaEvent(
     const std::string& event,
     const std::string& direction,
@@ -24,6 +35,7 @@ void logCtaEvent(
     const std::string& temperatureUnit = "",
     const std::string& temperatureOffset = "",
     const std::string& temperatureOffsetUnit = "",
-    const std::string& temperatureOffsetBasicDrCode = "");
+    const std::string& temperatureOffsetBasicDrCode = "",
+    const TemperatureRawFields& raw = TemperatureRawFields());
 
 #endif

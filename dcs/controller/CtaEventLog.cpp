@@ -88,7 +88,8 @@ void logCtaEvent(
     const std::string& temperatureUnit,
     const std::string& temperatureOffset,
     const std::string& temperatureOffsetUnit,
-    const std::string& temperatureOffsetBasicDrCode)
+    const std::string& temperatureOffsetBasicDrCode,
+    const TemperatureRawFields& raw)
 {
     std::lock_guard<std::mutex> lock(eventLogMutex);
     mkdir(LOG_DIRECTORY, 0755);
@@ -105,7 +106,7 @@ void logCtaEvent(
         std::string header;
         std::getline(input, header);
         if (!header.empty() && header.back() == '\r') header.pop_back();
-        const std::string suffix = ",details,present_temperature,temperature_unit,temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code";
+        const std::string suffix = ",details,present_temperature,present_temperature_unit,cta_temperature_offset,cta_temperature_offset_unit,cta_temperature_offset_basic_dr_opcode,present_temperature_raw,present_temperature_units_raw,setpoint_device_type,setpoint_unit,setpoint_units_raw,setpoint1_raw,setpoint2_raw";
         if (header.size() < suffix.size()
                 || header.compare(header.size() - suffix.size(), suffix.size(), suffix) != 0)
         {
@@ -122,7 +123,7 @@ void logCtaEvent(
         output << "timestamp_pacific,event_id,event,direction,command,result,"
                   "argument,source,opcode1,opcode2,nak_code,nak_reason,"
                   "operational_state,operational_state_name,"
-                  "intermediate_response_code,intermediate_response_name,details,present_temperature,temperature_unit,temperature_offset,temperature_offset_unit,temperature_offset_basic_dr_code\n";
+                  "intermediate_response_code,intermediate_response_name,details,present_temperature,present_temperature_unit,cta_temperature_offset,cta_temperature_offset_unit,cta_temperature_offset_basic_dr_opcode,present_temperature_raw,present_temperature_units_raw,setpoint_device_type,setpoint_unit,setpoint_units_raw,setpoint1_raw,setpoint2_raw\n";
 
     output << csvEscape(currentPacificTimestamp()) << ','
            << csvEscape(eventId) << ','
@@ -145,6 +146,13 @@ void logCtaEvent(
            << csvEscape(temperatureUnit) << ','
            << csvEscape(temperatureOffset) << ','
            << csvEscape(temperatureOffsetUnit) << ','
-           << csvEscape(temperatureOffsetBasicDrCode) << '\n';
+           << csvEscape(temperatureOffsetBasicDrCode) << ','
+           << csvEscape(raw.presentTemperatureRaw) << ','
+           << csvEscape(raw.presentTemperatureUnitsRaw) << ','
+           << csvEscape(raw.setpointDeviceType) << ','
+           << csvEscape(raw.setpointUnit) << ','
+           << csvEscape(raw.setpointUnitsRaw) << ','
+           << csvEscape(raw.setpoint1Raw) << ','
+           << csvEscape(raw.setpoint2Raw) << '\n';
     output.flush();
 }

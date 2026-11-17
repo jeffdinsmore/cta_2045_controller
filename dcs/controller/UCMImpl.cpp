@@ -941,23 +941,27 @@ void UCMImpl::processIncompleteMessage(const unsigned char *buffer, unsigned int
 
 namespace {
 void recordSetpointsResponse(unsigned char code, unsigned char opcode1,
-        unsigned char opcode2, const string& command, const string& details)
+        unsigned char opcode2, const string& command, const string& details,
+        const TemperatureRawFields& raw = TemperatureRawFields())
 {
     const char* name = intermediateResponseCodeName(code);
     LOG(INFO) << command << ": " << name << " " << details;
     logCtaEvent("intermediate_response", "inbound", command,
         code == 0 ? "success" : "error", "", details, "", "device_response",
         to_string(static_cast<int>(opcode1)), to_string(static_cast<int>(opcode2)),
-        "", "", "", "", to_string(static_cast<int>(code)), name);
+        "", "", "", "", to_string(static_cast<int>(code)), name, "", "", "", "", "", raw);
 }
 
 template <typename Message>
-string setpointDetails(Message* message)
+TemperatureRawFields setpointFields(Message* message)
 {
-    if (message->responseCode != 0) return "";
-    return "device_type=" + to_string(message->getDeviceType())
-        + ";units=" + to_string(static_cast<int>(message->units))
-        + ";setpoint1_raw=" + to_string(message->getSetpoint1());
+    TemperatureRawFields raw;
+    if (message->responseCode != 0) return raw;
+    raw.setpointDeviceType = to_string(message->getDeviceType());
+    raw.setpointUnitsRaw = to_string(static_cast<int>(message->units));
+    raw.setpointUnit = message->units == 0 ? "F" : message->units == 1 ? "C" : "";
+    raw.setpoint1Raw = to_string(message->getSetpoint1());
+    return raw;
 }
 }
 
@@ -972,18 +976,18 @@ void UCMImpl::processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse1*
     captureStartupSetpoints(message->responseCode, message->getDeviceType(),
         message->units, message->getSetpoint1(), "");
     recordSetpointsResponse(message->responseCode, message->opCode1,
-        message->opCode2, "get_setpoints", setpointDetails(message));
+        message->opCode2, "get_setpoints", "", setpointFields(message));
 }
 
 void UCMImpl::processGetSetpointsResponse(cea2045::cea2045GetSetpointsResponse2* message)
 {
     captureStartupSetpoints(message->responseCode, message->getDeviceType(),
         message->units, message->getSetpoint1(), to_string(message->getSetpoint2()));
-    string details = setpointDetails(message);
+    TemperatureRawFields raw = setpointFields(message);
     if (message->responseCode == 0)
-        details += ";setpoint2_raw=" + to_string(message->getSetpoint2());
+        raw.setpoint2Raw = to_string(message->getSetpoint2());
     recordSetpointsResponse(message->responseCode, message->opCode1,
-        message->opCode2, "get_setpoints", details);
+        message->opCode2, "get_setpoints", "", raw);
 }
 
 void UCMImpl::processPresentTemperatureStatus(int code, unsigned short length, bool malformed)
@@ -1004,13 +1008,15 @@ void UCMImpl::processGetPresentTemperatureResponse(
     ostringstream temperature;
     temperature << fixed << setprecision(2) << message->getPresentTemperatureDegrees();
     const string details = "device_type=" + to_string(message->getDeviceType())
-        + ";units=" + to_string(static_cast<int>(message->units))
-        + ";present_temperature_raw=" + to_string(message->getPresentTemperature())
         + ";temperature_source=average_tank";
+    TemperatureRawFields raw;
+    raw.presentTemperatureRaw = to_string(message->getPresentTemperature());
+    raw.presentTemperatureUnitsRaw = to_string(static_cast<int>(message->units));
     LOG(INFO) << "get_present_temperature: success " << details;
     logCtaEvent("intermediate_response", "inbound", "get_present_temperature",
         "success", "", details, "", "device_response", "3", "132", "", "", "", "",
-        "0", "success", temperature.str(), message->units == 0 ? "F" : "C");
+        "0", "success", temperature.str(), message->units == 0 ? "F" : "C",
+        "", "", "", raw);
 }
 
 void UCMImpl::savePublicDeviceInfo()
